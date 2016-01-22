@@ -1,4 +1,4 @@
-# alphabot
+# Alpha bot
 Open source python bot to chat with Slack and, eventually, other platforms.
 
 Inspired by [Hubot](https://hubot.github.com/) Alphabot is written in Tornado combining the power of Python with the speed of coroutines.
