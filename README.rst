@@ -7,7 +7,7 @@ Inspired by [Hubot](https://hubot.github.com/) Alphabot is written in Tornado co
 Installation
 ============
 
-.. highlight:: bash
+.. code-block:: bash
 
     virtualenv .venv
     make build
@@ -17,7 +17,7 @@ Running the bot
 ===============
 Until this is packaged as a pip this is the way to start the bot:
 
-.. highlight:: bash
+.. code-block:: bash
 
     export PYTHONPATH=$(pwd)
     export SLACK_TOKEN=xoxb-YourToken
