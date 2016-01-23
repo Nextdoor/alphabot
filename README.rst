@@ -1,4 +1,4 @@
-Alpha bot
+Alpha Bot
 ---------
 Open source python bot to chat with `Slack <https://slack.com/>`_ and, eventually, other platforms.
 
