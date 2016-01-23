@@ -31,6 +31,12 @@ def load_all_modules_from_dir(dirname):
         importer.find_module(package_name).load_module(package_name)
 
 
+class AlphaBotException(Exception):
+    """Top of hierarchy for all alphabot failures."""
+
+class CoreFailures(AlphaBotException):
+    """Used to signify a failure in the robot's core."""
+
 class Bot(object):
 
     instance=None
@@ -38,6 +44,9 @@ class Bot(object):
     def __init__(self):
         self.regex_commands = []
         self.engine = 'slack'
+
+        if not SLACK_TOKEN:
+            raise CoreFailures('SLACK_TOKEN required for slack engine.')
 
     @gen.coroutine
     def connect(self):
