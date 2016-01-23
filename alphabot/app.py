@@ -24,4 +24,7 @@ def boom():
     yield bot.start()
 
 if __name__ == '__main__':
-    ioloop.IOLoop.instance().run_sync(boom)
+    try:
+        ioloop.IOLoop.instance().run_sync(boom)
+    except KeyboardInterrupt:
+        pass

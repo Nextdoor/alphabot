@@ -42,11 +42,8 @@ class Bot(object):
 
     @gen.coroutine
     def gather_scripts(self):
-        from scripts import pingpong, desk, random
-
-        self.scripts = []
-        self.scripts.append(pingpong)
-        self.scripts.append(desk)
+        from scripts import desk
+        from scripts import random
 
     @gen.coroutine
     def send(self, text, to):
@@ -67,8 +64,6 @@ class Bot(object):
 
         while True:
             message = yield self.connection.read_message()
-            log.info('MESSAGE')
-            log.info(message)
 
             if message is None:
                 break
@@ -77,24 +72,22 @@ class Bot(object):
             if not message.get('text'):
                 continue
 
-            chat = self.get_chat(message)
-
-            # Old style of invoking scripts
-            for script in self.scripts:
-                try:
-                    yield script.hear(message.get('text'), chat)
-                except:
-                    chat.reply('Script %s had an error.' % script.__name__)
-                    traceback.print_exc(file=sys.stdout)
+            log.info("Received: %s" % message)
 
             # New style of invoking scripts
             for pair in self.regex_commands:
                 regex, function = pair
                 match = re.match(regex, message.get('text'))
                 if match:
+                    log.debug('Command "%s" matches' % function.__name__)
                     chat = self.get_chat(message)
                     chat.regex_groups = match.groups()
-                    yield function(chat)
+                    try:
+                        yield function(chat)
+                    except:
+                        chat.reply('Script %s had an error.' % function.__name__)
+                        traceback.print_exc(file=sys.stdout)
+
 
 
     def add_command(self, regex):
