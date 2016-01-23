@@ -14,9 +14,10 @@ Installation
 
 Running the bot
 ===============
-Until this is packaged as a pip this is the way to start the bot:
+
+If you installed alphabot as a python package then simply run it:
 
 .. code-block:: bash
 
     export SLACK_TOKEN=xoxb-YourToken
-    python alphabot/app.py
+    alphabot
