@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import pkgutil
 import re
 import sys
 import traceback
@@ -23,6 +24,13 @@ def get_instance():
     return Bot.instance
 
 
+def load_all_modules_from_dir(dirname):
+    log.debug('Loading modules from "%s"' % dirname)
+    for importer, package_name, _ in pkgutil.iter_modules([dirname]):
+        log.debug("Importing '%s'" % package_name)
+        importer.find_module(package_name).load_module(package_name)
+
+
 class Bot(object):
 
     instance=None
@@ -42,8 +50,9 @@ class Bot(object):
 
     @gen.coroutine
     def gather_scripts(self):
-        from scripts import desk
-        from scripts import random
+        script_paths = ['alphabot/scripts']
+        for path in script_paths:
+            load_all_modules_from_dir(path)
 
     @gen.coroutine
     def send(self, text, to):
