@@ -17,7 +17,7 @@ Python:
 
 Docker:
 
-.. code-block: bash
+.. code-block:: bash
 
     docker run nextdoor/alphabot
 
