@@ -58,8 +58,7 @@ class Bot(object):
         self.connection = yield websocket.websocket_connect(self.socket_url)
 
     @gen.coroutine
-    def gather_scripts(self):
-        script_paths = ['alphabot/scripts']
+    def gather_scripts(self, script_paths=[]):
         for path in script_paths:
             load_all_modules_from_dir(path)
 
@@ -90,14 +89,14 @@ class Bot(object):
             if not message.get('text'):
                 continue
 
-            log.info("Received: %s" % message)
+            log.debug("Received: %s" % message)
 
             # New style of invoking scripts
             for pair in self.regex_commands:
                 regex, function = pair
                 match = re.match(regex, message.get('text'))
                 if match:
-                    log.debug('Command "%s" matches' % function.__name__)
+                    log.info('Command "%s" matches' % function.__name__)
                     chat = self.get_chat(message)
                     chat.regex_groups = match.groups()
                     try:
