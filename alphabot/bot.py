@@ -59,8 +59,12 @@ class Bot(object):
 
     @gen.coroutine
     def gather_scripts(self, script_paths=[]):
+        log.info('Gathering scripts...')
         for path in script_paths:
+            log.info('Gathering functions from %s' % path)
             load_all_modules_from_dir(path)
+        if not script_paths:
+            log.warning('Warning! You did not specify any scripts to load.')
 
     @gen.coroutine
     def send(self, text, to):
@@ -107,7 +111,7 @@ class Bot(object):
 
 
 
-    def add_command(self, regex):
+    def add_command(self, regex, direct=False):
 
         def decorator(function):
             log.info('New Command: "%s" => %s()' % (regex, function.__name__))
