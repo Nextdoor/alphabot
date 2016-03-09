@@ -44,6 +44,7 @@ class Bot(object):
     def __init__(self):
         self.regex_commands = []
         self.engine = 'slack'
+        self.chat_listeners = []
 
         if not SLACK_TOKEN:
             raise CoreFailures('SLACK_TOKEN required for slack engine.')
@@ -104,12 +105,19 @@ class Bot(object):
                     chat = self.get_chat(message)
                     chat.regex_groups = match.groups()
                     try:
-                        yield function(chat)
+                        function(chat)
                     except:
                         chat.reply('Script %s had an error.' % function.__name__)
                         traceback.print_exc(file=sys.stdout)
 
+            for chat in self.chat_listeners:
+                chat.hear(message)
 
+    def add_listener(self, chat):
+        self.chat_listeners.append(chat)
+
+    def remove_listener(self, chat):
+        self.chat_listeners.remove(chat)
 
     def add_command(self, regex, direct=False):
 
@@ -125,6 +133,7 @@ class Chat(object):
     def __init__(self, bot, message):
         self.bot = bot
         self.message = message
+        self.listening = False
 
     @gen.coroutine
     def reply(self, text):
@@ -141,3 +150,41 @@ class Chat(object):
             '&timestamp=' + self.message.get('ts') + 
             '&channel=' + self.message.get('channel')))
 
+    #TODO: Add a timeout here. Don't want to hang forever.
+    @gen.coroutine
+    def wait_for_regex(self, regex):
+        self.bot.add_listener(self)
+        self.listening = regex
+
+        # Hang until self.hear() sets this to False
+        while self.listening:
+            yield gen.moment
+
+        self.bot.remove_listener(self)
+
+        raise gen.Return(self.heard_message)
+
+    @gen.coroutine
+    def hear(self, new_message):
+        """Invoked by the Bot class to note that `message` was heard."""
+        log.info('Just heard %s' % new_message)
+        if new_message.get('user') != self.message['user']:
+            log.info('Heard this from a wrong user.')
+            return
+
+        if new_message.get('ts') == self.message.get('ts'):
+            log.info('Messages have same timestamp ID. Skipping.');
+            return
+
+        log.info('Message %s is from the correct user!' % new_message['text'])
+
+        match = re.match(self.listening, new_message['text'])
+        log.info('Match is %s' % match)
+        if match:
+            log.info('It matches!')
+            self.listening = False
+            # Generate full-blown chat object here.
+            self.heard_message = self.bot.get_chat(new_message)
+            raise gen.Return()
+
+        log.info('It does not match %s' % self.listening)

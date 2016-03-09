@@ -13,8 +13,14 @@ def lunch_suggestion(message):
     yield message.reply("How about Chipotle?")
 
     if bot.engine == 'slack':
-        #yield gen.sleep(3)
         yield message.react('burrito')
 
-# Alternative syntax to consider implementing:
-# bot.add_command('lunch', lunch_suggestion)
+@bot.add_command('hi')
+@gen.coroutine
+def conversation(message):
+
+    yield message.reply("How are you?")
+
+    response = yield message.wait_for_regex('(.*)')
+
+    yield message.reply("%s? Me too!" % response.message['text'])
