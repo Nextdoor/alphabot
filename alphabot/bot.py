@@ -157,6 +157,7 @@ class Chat(object):
     @gen.coroutine
     def reply(self, text):
         """Reply to the original channel of the message."""
+        log.debug('Sending a reply...')
         yield self.bot.send(text, to=self.message.get('channel'))
 
     @gen.coroutine

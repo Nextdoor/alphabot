@@ -16,6 +16,7 @@ def lunch_suggestion(message):
         yield message.react('burrito')
 
 @bot.add_command('hi')
+@gen.coroutine
 def conversation(message):
 
     yield message.reply("How are you?")
