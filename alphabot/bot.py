@@ -7,6 +7,7 @@ import sys
 import traceback
 
 from tornado import websocket, gen, httpclient
+from tornado.concurrent import Future
 import requests
 
 log = logging.getLogger(__name__)
@@ -29,6 +30,25 @@ def load_all_modules_from_dir(dirname):
     for importer, package_name, _ in pkgutil.iter_modules([dirname]):
         log.debug("Importing '%s'" % package_name)
         importer.find_module(package_name).load_module(package_name)
+
+
+def handle_callback(future, chat):
+    """Attach to Futures that are not yielded."""
+
+    if not hasattr(future, 'add_done_callback'):
+        log.error('Could not attach callback. Exceptions will be missed.')
+        return
+
+    def cb(future):
+        """Custom callback which is chat aware."""
+        try:
+            future.result()
+        except:
+            chat.reply('Script %s had an error.' % function.__name__)
+            traceback.print_exc(file=sys.stdout)
+
+    # Tornado functionality to add a custom callback
+    future.add_done_callback(cb)
 
 
 class AlphaBotException(Exception):
@@ -104,11 +124,10 @@ class Bot(object):
                     log.info('Command "%s" matches' % function.__name__)
                     chat = self.get_chat(message)
                     chat.regex_groups = match.groups()
-                    try:
-                        function(chat)
-                    except:
-                        chat.reply('Script %s had an error.' % function.__name__)
-                        traceback.print_exc(file=sys.stdout)
+                    future = function(chat)
+                    if type(future) != Future:
+                        log.error('Function "%s" is not a Tornado Future' % function.__name__)
+                    handle_callback(future, chat)
 
             for chat in self.chat_listeners:
                 chat.hear(message)

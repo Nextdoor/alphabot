@@ -13,8 +13,9 @@
 #
 # Copyright 2014 Nextdoor.com, Inc
 
-import logging
 import argparse
+import logging
+import os
 import sys
 
 from tornado import ioloop, gen
@@ -24,18 +25,22 @@ import alphabot.bot
 
 requests.packages.urllib3.disable_warnings()
 
-FORMAT = '%(asctime)-15s %(message)s'
+FORMAT = '%(asctime)-15s %(levelname)-8s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format=FORMAT)
 logging.captureWarnings(True)
 log = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description='Alphabot')
-parser.add_argument('-S', '--scripts', dest='scripts',
-                    action='append', default=[],
-                    help=('Direcotry or remote url to fetch bot scripts. '
+parser.add_argument('--version', help='Show version and exit', dest='version',
+                    action='store_true', default=False)
+parser.add_argument('-S', '--scripts', dest='scripts', metavar='dir',
+                    action='store', default=[], nargs='+',
+                    help=('Direcotry to fetch bot scripts. '
                           'Can be specified multiple times'))
-
 args = parser.parse_args()
+
+__author__ = ('Mikhail Simin <mikhail@nextdoor.com>',)
+__version__ = '0.0.1'
 
 def start_ioloop():
     try:
@@ -51,11 +56,17 @@ def start_alphabot():
     # Add slack-specific adapter separater.
     bot = alphabot.bot.get_instance()
 
+    full_path_scripts = [os.path.abspath(s) for s in args.scripts]
+    log.debug('full path scripts: %s' % full_path_scripts)
     yield [
             bot.connect(),
-            bot.gather_scripts(args.scripts)
+            bot.gather_scripts(full_path_scripts)
           ]
     yield bot.start()
 
 if __name__ == '__main__':
+    if args.version:
+        print __version__
+        exit()
+
     start_ioloop()
