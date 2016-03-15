@@ -58,10 +58,7 @@ def start_alphabot():
 
     full_path_scripts = [os.path.abspath(s) for s in args.scripts]
     log.debug('full path scripts: %s' % full_path_scripts)
-    yield [
-            bot.connect(),
-            bot.gather_scripts(full_path_scripts)
-          ]
+    yield bot.setup(memory_type='dict', script_paths=full_path_scripts)
     yield bot.start()
 
 if __name__ == '__main__':

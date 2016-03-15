@@ -10,6 +10,8 @@ from tornado import websocket, gen, httpclient
 from tornado.concurrent import Future
 import requests
 
+from alphabot import memory
+
 log = logging.getLogger(__name__)
 
 
@@ -63,14 +65,22 @@ class Bot(object):
 
     def __init__(self):
         self.regex_commands = []
-        self.engine = 'slack'
         self.chat_listeners = []
+        self.memory = None
 
+        self.engine = 'slack'
         if not SLACK_TOKEN:
             raise CoreFailures('SLACK_TOKEN required for slack engine.')
 
     @gen.coroutine
-    def connect(self):
+    def setup(self, memory_type, script_paths):
+        yield self._setup_chat()
+        yield self._setup_memory(memory_type=memory_type)
+        yield self._gather_scripts(script_paths)
+
+    @gen.coroutine
+    def _setup_chat(self):
+        """Connect to the chat server."""
         log.info('Authenticating...')
         response = requests.get(SLACK_START + '?token=' + SLACK_TOKEN).json()
         log.info('Logged in!')
@@ -79,7 +89,19 @@ class Bot(object):
         self.connection = yield websocket.websocket_connect(self.socket_url)
 
     @gen.coroutine
-    def gather_scripts(self, script_paths=[]):
+    def _setup_memory(self, memory_type='dict'):
+
+        memory_map = {
+            'dict': memory.Memory_Dict,
+        }
+
+        # Get assiciated memory class or default to Dict memory type.
+        NewMemory = memory_map.get(memory_type, memory.Memory_Dict)
+        self.memory = NewMemory()
+        yield self.memory.setup()
+
+    @gen.coroutine
+    def _gather_scripts(self, script_paths=[]):
         log.info('Gathering scripts...')
         for path in script_paths:
             log.info('Gathering functions from %s' % path)
