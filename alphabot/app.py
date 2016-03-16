@@ -54,7 +54,7 @@ def start_ioloop():
 def start_alphabot():
 
     # Add slack-specific adapter separater.
-    bot = alphabot.bot.get_instance()
+    bot = alphabot.bot.get_instance(engine='slack')
 
     full_path_scripts = [os.path.abspath(s) for s in args.scripts]
     log.debug('full path scripts: %s' % full_path_scripts)

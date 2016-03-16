@@ -27,9 +27,9 @@ def conversation(message):
     log.info('Starting a conversation')
     yield message.reply("How are you?")
 
-    response = yield message.wait_for_regex('(.*)')
+    response = yield message.listen_for('(.*)')
 
-    yield message.reply("%s? Me too!" % response.message['text'])
+    yield message.reply("%s? Me too!" % response.text)
 
 @bot.add_command('random number')
 @gen.coroutine
