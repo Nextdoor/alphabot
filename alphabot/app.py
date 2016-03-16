@@ -37,6 +37,9 @@ parser.add_argument('-S', '--scripts', dest='scripts', metavar='dir',
                     action='store', default=[], nargs='+',
                     help=('Direcotry to fetch bot scripts. '
                           'Can be specified multiple times'))
+parser.add_argument('-e', '--engine', dest='engine', action='store',
+                    default='cli', help='What chat engine to use. Slack or cli')
+
 args = parser.parse_args()
 
 __author__ = ('Mikhail Simin <mikhail@nextdoor.com>',)
@@ -53,8 +56,7 @@ def start_ioloop():
 @gen.coroutine
 def start_alphabot():
 
-    # Add slack-specific adapter separater.
-    bot = alphabot.bot.get_instance(engine='slack')
+    bot = alphabot.bot.get_instance(engine=args.engine)
 
     full_path_scripts = [os.path.abspath(s) for s in args.scripts]
     log.debug('full path scripts: %s' % full_path_scripts)
@@ -63,7 +65,7 @@ def start_alphabot():
 
 if __name__ == '__main__':
     if args.version:
-        print __version__
+        print(__version__)
         exit()
 
     start_ioloop()

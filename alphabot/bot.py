@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import copy
 import json
 import logging
@@ -7,7 +9,7 @@ import re
 import sys
 import traceback
 
-from tornado import websocket, gen, httpclient
+from tornado import websocket, gen, httpclient, ioloop
 from tornado.concurrent import Future
 import requests
 
@@ -129,7 +131,12 @@ class Bot(object):
 
     @gen.coroutine
     def _next_message(self):
-        raise CoreException('Chat engine "%s" is missing _next_message' % (
+        raise CoreException('Chat engine "%s" is missing _next_message()' % (
+            self.__class__.__name__))
+
+    @gen.coroutine
+    def send(self, text, to):
+        raise CoreException('Chat engine "%s" is missing send(...)' % (
             self.__class__.__name__))
 
     def add_listener(self, chat):
@@ -150,7 +157,41 @@ class Bot_CLI(Bot):
 
     @gen.coroutine
     def _setup(self):
-        pass
+        self.print_prompt()
+        ioloop.IOLoop.instance().add_handler(
+            sys.stdin, self.capture_input, ioloop.IOLoop.READ)
+
+        self.input_line = None
+
+    def print_prompt(self):
+        print('\033[4mAlphabot\033[0m> ', end='')
+
+    def capture_input(self, fd, events):
+        self.input_line = fd.readline().strip()
+        if (self.input_line is None or self.input_line == ''):
+            self.input_line = None
+        self.print_prompt()
+
+    @gen.coroutine
+    def _next_message(self):
+        while not self.input_line:
+            yield gen.moment
+
+        user_input = self.input_line
+        self.input_line = None
+
+        chat = Chat(
+            text=user_input,
+            user='User',
+            channel='CLI',
+            raw=user_input,
+            bot=self)
+
+        raise gen.Return(chat)
+
+    @gen.coroutine
+    def send(self, text, to):
+        print(text)
 
 
 class Bot_Slack(Bot):
