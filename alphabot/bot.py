@@ -87,12 +87,17 @@ class Bot(object):
     @gen.coroutine
     def _setup_memory(self, memory_type='dict'):
 
+        # TODO: memory module should provide this mapping.
         memory_map = {
-            'dict': memory.Memory_Dict,
+            'dict': memory.MemoryDict,
         }
 
         # Get assiciated memory class or default to Dict memory type.
-        NewMemory = memory_map.get(memory_type, memory.Memory_Dict)
+        NewMemory = memory_map.get(memory_type)
+        if not NewMemory:
+            raise InvalidOptions(
+                'Memory type "%s" is not available.' % memory_type)
+
         self.memory = NewMemory()
         yield self.memory.setup()
 
@@ -254,6 +259,7 @@ class Bot_Slack(Bot):
         yield self.connection.write_message(payload)
 
 
+
 class Chat(object):
     """Wrapper for Message, Bot and helpful functions.
     
@@ -284,7 +290,6 @@ class Chat(object):
     @gen.coroutine
     def reply(self, text):
         """Reply to the original channel of the message."""
-        log.debug('Sending a reply...')
         yield self.bot.send(text, to=self.channel)
 
     # TODO: figure out how to make this Slack-specific

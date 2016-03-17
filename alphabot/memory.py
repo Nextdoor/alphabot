@@ -27,7 +27,7 @@ class Memory():
             self.__class__.__name__))
 
 
-class Memory_Dict(Memory):
+class MemoryDict(Memory):
     """Ephemeral in-memory storage."""
 
     def __init__(self):
