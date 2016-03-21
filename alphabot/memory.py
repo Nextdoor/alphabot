@@ -2,9 +2,12 @@ import logging
 
 from tornado import gen
 
+import redis
+
 log = logging.getLogger(__name__)
 
-class Memory():
+
+class Memory(object):
     """Memory interface to Alphabot."""
 
     @gen.coroutine
@@ -40,3 +43,18 @@ class MemoryDict(Memory):
     @gen.coroutine
     def _get(self, key, default):
         raise gen.Return(self.values.get(key, default))
+
+
+class MemoryRedis(Memory):
+    """Redis storage."""
+
+    def __init__(self, host='localhost', port=6379, db=0):
+        self.r = redis.StrictRedis(host, port, db)
+
+    @gen.coroutine
+    def _save(self, key, value):
+        self.r.set(key, value)
+
+    @gen.coroutine
+    def _get(self, key, default):
+        raise gen.Return(self.r.get(key))
