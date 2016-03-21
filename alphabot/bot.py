@@ -21,17 +21,20 @@ log = logging.getLogger(__name__)
 class AlphaBotException(Exception):
     """Top of hierarchy for all alphabot failures."""
 
+
 class CoreException(AlphaBotException):
     """Used to signify a failure in the robot's core."""
+
 
 class InvalidOptions(AlphaBotException):
     """Robot failed because input options were somehow broken."""
 
+
 def get_instance(engine='cli'):
     if not Bot.instance:
         engine_map = {
-            'cli': Bot_CLI,
-            'slack': Bot_Slack
+            'cli': BotCLI,
+            'slack': BotSlack
         }
         if not engine_map.get(engine):
             raise InvalidOptions('Bot engine "%s" is not available.' % engine)
@@ -71,7 +74,7 @@ def handle_exceptions(future, chat):
 
 class Bot(object):
 
-    instance=None
+    instance = None
 
     def __init__(self):
         self.regex_commands = []
@@ -90,15 +93,16 @@ class Bot(object):
         # TODO: memory module should provide this mapping.
         memory_map = {
             'dict': memory.MemoryDict,
+            'redis': memory.MemoryRedis,
         }
 
-        # Get assiciated memory class or default to Dict memory type.
-        NewMemory = memory_map.get(memory_type)
-        if not NewMemory:
+        # Get associated memory class or default to Dict memory type.
+        memory_type = memory_map.get(memory_type)
+        if not memory_type:
             raise InvalidOptions(
                 'Memory type "%s" is not available.' % memory_type)
 
-        self.memory = NewMemory()
+        self.memory = memory_type()
         yield self.memory.setup()
 
     @gen.coroutine
@@ -158,7 +162,8 @@ class Bot(object):
 
         return decorator 
 
-class Bot_CLI(Bot):
+
+class BotCLI(Bot):
 
     @gen.coroutine
     def _setup(self):
@@ -173,7 +178,7 @@ class Bot_CLI(Bot):
 
     def capture_input(self, fd, events):
         self.input_line = fd.readline().strip()
-        if (self.input_line is None or self.input_line == ''):
+        if self.input_line is None or self.input_line == '':
             self.input_line = None
         self.print_prompt()
 
@@ -199,7 +204,7 @@ class Bot_CLI(Bot):
         print(text)
 
 
-class Bot_Slack(Bot):
+class BotSlack(Bot):
 
     api_start = 'https://slack.com/api/rtm.start'
     api_react = 'https://slack.com/api/reactions.add'
@@ -259,7 +264,6 @@ class Bot_Slack(Bot):
         yield self.connection.write_message(payload)
 
 
-
 class Chat(object):
     """Wrapper for Message, Bot and helpful functions.
     
@@ -298,12 +302,12 @@ class Chat(object):
         client = httpclient.AsyncHTTPClient()
         yield client.fetch(
             (self.api_react+ 
-            '?token=' + self._token +
-            '&name=' + reaction +
-            '&timestamp=' + self.message.get('ts') + 
-            '&channel=' + self.message.get('channel')))
+             '?token=' + self._token +
+             '&name=' + reaction +
+             '&timestamp=' + self.message.get('ts') +
+             '&channel=' + self.message.get('channel')))
 
-    #TODO: Add a timeout here. Don't want to hang forever.
+    # TODO: Add a timeout here. Don't want to hang forever.
     @gen.coroutine
     def listen_for(self, regex):
         self.listening = regex
