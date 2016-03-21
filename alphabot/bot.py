@@ -97,12 +97,12 @@ class Bot(object):
         }
 
         # Get associated memory class or default to Dict memory type.
-        memory_type = memory_map.get(memory_type)
-        if not memory_type:
+        MemoryClass = memory_map.get(memory_type)
+        if not MemoryClass:
             raise InvalidOptions(
                 'Memory type "%s" is not available.' % memory_type)
 
-        self.memory = memory_type()
+        self.memory = MemoryClass()
         yield self.memory.setup()
 
     @gen.coroutine

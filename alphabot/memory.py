@@ -1,4 +1,5 @@
 import logging
+import os
 
 from tornado import gen
 
@@ -48,8 +49,13 @@ class MemoryDict(Memory):
 class MemoryRedis(Memory):
     """Redis storage."""
 
-    def __init__(self, host='localhost', port=6379, db=0):
+    def __init__(self):
+        host = os.getenv('REDIS_HOST', 'localhost')
+        port = os.getenv('REDIS_PORT', 6379)
+        db = os.getenv('REDIS_DB', 0)
         self.r = redis.StrictRedis(host, port, db)
+        # Test connection. Raises redis.exceptions.ConnectionError.
+        self.r.ping()
 
     @gen.coroutine
     def _save(self, key, value):
