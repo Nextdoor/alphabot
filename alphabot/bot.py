@@ -79,6 +79,7 @@ class Bot(object):
     def __init__(self):
         self.regex_commands = []
         self.chat_listeners = []
+        self.event_listeners = []
         self.memory = None
 
     @gen.coroutine
@@ -138,6 +139,13 @@ class Bot(object):
                 future = function(message)
                 handle_exceptions(future, message)
 
+            # # TODO: Make this the only style. Convert above two loops to
+            # # leverage event listeners
+            # for kwargs, function in self.event_listeners:
+            #     # Check if all kwargs are in the event
+            #     all(kw in ...
+            # # FIXME Cannot get this working if this loop only grabs user messages
+
     @gen.coroutine
     def _next_message(self):
         raise CoreException('Chat engine "%s" is missing _next_message()' % (
@@ -154,6 +162,12 @@ class Bot(object):
     def remove_listener(self, chat):
         self.chat_listeners.remove(chat)
 
+    def on(self, **kwargs):
+        def decorator(function):
+            log.info('New Command: "%s" => %s()' % (kwargs, function.__name__))
+            self.event_listeners.append((kwargs, function))
+
+        return decorator
     def add_command(self, regex, direct=False):
 
         def decorator(function):
@@ -205,6 +219,8 @@ class BotCLI(Bot):
 
 
 class BotSlack(Bot):
+
+    engine = 'slack'
 
     api_start = 'https://slack.com/api/rtm.start'
     api_react = 'https://slack.com/api/reactions.add'
@@ -301,11 +317,11 @@ class Chat(object):
     def react(self, reaction):
         client = httpclient.AsyncHTTPClient()
         yield client.fetch(
-            (self.api_react+ 
-             '?token=' + self._token +
+            (self.bot.api_react+
+             '?token=' + self.bot._token +
              '&name=' + reaction +
-             '&timestamp=' + self.message.get('ts') +
-             '&channel=' + self.message.get('channel')))
+             '&timestamp=' + self.raw.get('ts') +
+             '&channel=' + self.channel))
 
     # TODO: Add a timeout here. Don't want to hang forever.
     @gen.coroutine
