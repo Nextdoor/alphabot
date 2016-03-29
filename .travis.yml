@@ -1,0 +1,11 @@
+language: python
+
+python:
+  - "3.5.1"
+  - "2.7"
+  - "pypy"
+
+install:
+  - make build
+
+script: make test
