@@ -26,3 +26,17 @@ class TestBot(testing.AsyncTestCase):
         yield bot.setup('unit-memory', 'unit-scripts')
 
         self.assertEquals(bot._setup_memory.call_count, 1)
+
+    def test_check_event_kwargs(self):
+        bot = AB.Bot()
+        event = {'test': 'test', 'foobar': ['one', 'two']}
+        kwargs = {'test': 'test', 'foobar': ['one', 'two']}
+        self.assertTrue(bot.check_event_kwargs(event, kwargs))
+
+        event = {'test': 'test', 'foobar': ['one', 'two'], 'extra':'yes'}
+        kwargs = {'test': 'test', 'foobar': ['one', 'two']}
+        self.assertTrue(bot.check_event_kwargs(event, kwargs))
+
+        event = {'test': 'test'}
+        kwargs = {'test': 'test', 'foobar': ['one', 'two']}
+        self.assertFalse(bot.check_event_kwargs(event, kwargs))
