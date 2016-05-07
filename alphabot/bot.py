@@ -64,9 +64,8 @@ def handle_exceptions(future, chat):
         try:
             future.result()
         except:
+            log.error('Script had an error', exc_info=1)
             chat.reply('Script had an error.')
-            # FIXME: send to log, not stdout
-            traceback.print_exc(file=sys.stdout)
 
     # Tornado functionality to add a custom callback
     future.add_done_callback(cb)
@@ -77,8 +76,6 @@ class Bot(object):
     instance = None
 
     def __init__(self):
-        self.regex_commands = []
-        self.chat_listeners = []
         self.event_listeners = []
         self.memory = None
 
@@ -118,33 +115,22 @@ class Bot(object):
     @gen.coroutine
     def start(self):
 
-        log.debug('Bot started! Listening to messages.')
+        log.info('Bot started! Listening to events.')
+
         while True:
-            next_message = yield self._next_message()
+            event = yield self._get_next_event()
+            log.debug('Received event: %s' % event)
+            log.debug('Checking against %s listeners' % len(self.event_listeners))
 
-            for chat in self.chat_listeners:
-                message = copy.copy(next_message)
-                future = chat.hear(message)
-                handle_exceptions(future, message)
-
-            for regex, function in self.regex_commands:
-                message = copy.copy(next_message)
-                if not message.matches_regex(regex):
-                    continue
-
-                # Execute the matching script function
-                # We do not call yield here because this command may wait for
-                # future messages, and we cannot "block" here.
-                log.debug('Invoking function %s' % function.__name__)
-                future = function(message)
-                handle_exceptions(future, message)
-
-            # # TODO: Make this the only style. Convert above two loops to
-            # # leverage event listeners
-            # for kwargs, function in self.event_listeners:
-            #     # Check if all kwargs are in the event
-            #     all(kw in ...
-            # # FIXME Cannot get this working if this loop only grabs user messages
+            # Note: Copying the event_listeners list here to prevent
+            # mid-loop modification of the list.
+            for kwargs, function in list(self.event_listeners):
+                log.debug('Checking "%s"' % function.__name__)
+                match = self.check_event_kwargs(event, kwargs)
+                if match:
+                    future = function(event=event)
+                    handle_exceptions(future, event)
+                yield gen.moment
 
     @gen.coroutine
     def _next_message(self):
@@ -157,24 +143,54 @@ class Bot(object):
             self.__class__.__name__))
 
     def add_listener(self, chat):
-        self.chat_listeners.append(chat)
+        log.info('Adding chat listener...')
+        @gen.coroutine
+        def cmd(event):
+            message = self.event_to_chat(event)
+            chat.hear(message)
+
+        # Uniquely identify this `cmd` to delete later.
+        cmd._listener_chat_id = id(chat)
+
+        self.on(type='message')(cmd)
 
     def remove_listener(self, chat):
-        self.chat_listeners.remove(chat)
+        match = None
+        # Have to search all the event_listeners here
+        for kw, function in self.event_listeners:
+            if (hasattr(function, '_listener_chat_id') and
+                    function._listener_chat_id == id(chat)):
+                match = (kw, function)
+        self.event_listeners.remove(match)
 
     def on(self, **kwargs):
         def decorator(function):
-            log.info('New Command: "%s" => %s()' % (kwargs, function.__name__))
+            log.info('New Listener: %s => %s()' % (kwargs, function.__name__))
             self.event_listeners.append((kwargs, function))
 
         return decorator
-    def add_command(self, regex, direct=False):
 
+    def add_command(self, regex, direct=False):
         def decorator(function):
-            log.info('New Command: "%s" => %s()' % (regex, function.__name__))
-            self.regex_commands.append((regex, function))
+            log.info('New Command: %s' % function.__name__)
+
+            @gen.coroutine
+            def cmd(event):
+                message = self.event_to_chat(event)
+                if not message.matches_regex(regex):
+                    return
+                function(message)
+            cmd.__name__ = function.__name__
+
+            self.on(type='message')(cmd)
 
         return decorator 
+
+    def check_event_kwargs(self, event, kwargs):
+        """Check that all expected kwargs were satisfied by the event."""
+        kw_set = set(kwargs.items())
+        ev_set = set(event.items())
+        return kw_set.issubset(ev_set)
 
 
 class BotCLI(Bot):
@@ -195,6 +211,27 @@ class BotCLI(Bot):
         if self.input_line is None or self.input_line == '':
             self.input_line = None
         self.print_prompt()
+
+    @gen.coroutine
+    def _get_next_event(self):
+        while not self.input_line:
+            yield gen.moment
+
+        user_input = self.input_line
+        self.input_line = None
+
+        event = { 'type': 'message',
+                  'message': user_input }
+
+        raise gen.Return(event)
+
+    def event_to_chat(self, event):
+        return Chat(
+            text=event['message'],
+            user='User',
+            channel='CLI',
+            raw=event['message'],
+            bot=self)
 
     @gen.coroutine
     def _next_message(self):
@@ -238,7 +275,7 @@ class BotSlack(Bot):
         self.socket_url = response['url']
         self.connection = yield websocket.websocket_connect(self.socket_url)
 
-    def _slack_to_chat(self, message):
+    def event_to_chat(self, message):
         return Chat(text=message.get('text'),
                     user=message.get('user'),
                     channel=message.get('channel'),
@@ -246,25 +283,16 @@ class BotSlack(Bot):
                     bot=self)
 
     @gen.coroutine
-    def _next_message(self):
-        """Fetch the next message and construct return a Chat object."""
-        msg = yield self._read_message()
-        message = self._slack_to_chat(msg)
-
-        raise gen.Return(message)
-
-    @gen.coroutine
-    def _read_message(self):
+    def _get_next_event(self):
         """Slack-specific message reader."""
-        while True:
-            message = yield self.connection.read_message()
-            log.debug(message)
+        message = yield self.connection.read_message()
+        log.debug(message)
 
-            message = json.loads(message)
-            if message.get('type') != 'message':
-                continue
-            else:
-                break
+        message = json.loads(message)
+        #if message.get('type') != 'message':
+        #    continue
+        #else:
+        #    break
 
         raise gen.Return(message)
 

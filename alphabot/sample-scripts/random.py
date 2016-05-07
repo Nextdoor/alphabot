@@ -8,8 +8,14 @@ import alphabot.bot
 # Actual bot instance. Will be available because this file should only be
 # invoked inside of a script-discovery code of the bot itself!
 bot = alphabot.bot.get_instance()
-
 log = logging.getLogger(__name__)
+
+@bot.on(type='message')
+@gen.coroutine
+def acknowledge(event):
+    message = bot.event_to_chat(event)
+    # yield message.reply('Tadaa!')
+    log.info('Attached to a message!')
 
 @bot.add_command('lunch')
 @gen.coroutine
