@@ -188,7 +188,7 @@ class Bot(object):
 
     def check_event_kwargs(self, event, kwargs):
         """Check that all expected kwargs were satisfied by the event."""
-        return kwargs.viewitems() <= event.viewitems()
+        return kwargs.items() <= event.items()
 
 
 class BotCLI(Bot):
