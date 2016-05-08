@@ -65,7 +65,6 @@ def handle_exceptions(future, chat):
             future.result()
         except:
             log.error('Script had an error', exc_info=1)
-            chat.reply('Script had an error.')
 
     # Tornado functionality to add a custom callback
     future.add_done_callback(cb)
@@ -126,16 +125,19 @@ class Bot(object):
             # mid-loop modification of the list.
             for kwargs, function in list(self.event_listeners):
                 log.debug('Checking "%s"' % function.__name__)
+                log.debug('Searching for %s in %s' % (kwargs, event))
                 match = self.check_event_kwargs(event, kwargs)
                 if match:
                     future = function(event=event)
                     handle_exceptions(future, event)
                 yield gen.moment
 
-    @gen.coroutine
-    def _next_message(self):
-        raise CoreException('Chat engine "%s" is missing _next_message()' % (
-            self.__class__.__name__))
+    def on(self, **kwargs):
+        def decorator(function):
+            log.info('New Listener: %s => %s()' % (kwargs, function.__name__))
+            self.event_listeners.append((kwargs, function))
+
+        return decorator
 
     @gen.coroutine
     def send(self, text, to):
@@ -163,17 +165,8 @@ class Bot(object):
                 match = (kw, function)
         self.event_listeners.remove(match)
 
-    def on(self, **kwargs):
-        def decorator(function):
-            log.info('New Listener: %s => %s()' % (kwargs, function.__name__))
-            self.event_listeners.append((kwargs, function))
-
-        return decorator
-
     def add_command(self, regex, direct=False):
         def decorator(function):
-            log.info('New Command: %s' % function.__name__)
-
             @gen.coroutine
             def cmd(event):
                 message = self.event_to_chat(event)
@@ -230,23 +223,6 @@ class BotCLI(Bot):
             channel='CLI',
             raw=event['message'],
             bot=self)
-
-    @gen.coroutine
-    def _next_message(self):
-        while not self.input_line:
-            yield gen.moment
-
-        user_input = self.input_line
-        self.input_line = None
-
-        chat = Chat(
-            text=user_input,
-            user='User',
-            channel='CLI',
-            raw=user_input,
-            bot=self)
-
-        raise gen.Return(chat)
 
     @gen.coroutine
     def send(self, text, to):
