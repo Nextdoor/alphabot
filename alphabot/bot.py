@@ -305,6 +305,8 @@ class Chat(object):
         
         If it does store the groups for later use.
         """
+        if not self.text:
+            return False
         match = re.match(regex, self.text)
         if not match:
             return False
