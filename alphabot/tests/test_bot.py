@@ -33,6 +33,10 @@ class TestBot(testing.AsyncTestCase):
         kwargs = {'test': 'test', 'foobar': ['one', 'two']}
         self.assertTrue(bot.check_event_kwargs(event, kwargs))
 
+        event = {'type': 'message', 'message': 'Hello!'}
+        kwargs = {'type': 'message',}
+        self.assertTrue(bot.check_event_kwargs(event, kwargs))
+
         event = {'test': 'test', 'foobar': ['one', 'two'], 'extra':'yes'}
         kwargs = {'test': 'test', 'foobar': ['one', 'two']}
         self.assertTrue(bot.check_event_kwargs(event, kwargs))

@@ -181,7 +181,10 @@ class Bot(object):
 
     def check_event_kwargs(self, event, kwargs):
         """Check that all expected kwargs were satisfied by the event."""
-        return kwargs.items() <= event.items()
+        try:
+            return kwargs.viewitems() <= event.viewitems()  # Python 2.7
+        except AttributeError:
+            return kwargs.items() <= event.items()  # Python 3
 
 
 class BotCLI(Bot):
