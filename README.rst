@@ -9,6 +9,14 @@ Inspired by `Hubot <https://hubot.github.com/>`_. Alphabot is written in `Tornad
 Installation
 ============
 
+Raw:
+
+.. code-block:: bash
+
+    git clone https://github.com/Nextdoor/alphabot.git
+    cd alphabot
+    pip install -e .
+    
 Python:
 
 .. code-block:: bash
@@ -28,8 +36,13 @@ If you installed alphabot as a python package then simply run it:
 
 .. code-block:: bash
 
+    alphabot -S alphabot/sample-scripts/  # or...
+    alphabot -S path/to/your/scripts/
+
+.. code-block:: bash
+
     export SLACK_TOKEN=xoxb-YourToken
-    alphabot
+    alphabot --engine slack -S path/to your/scripts/
 
 
 .. |pypi_download| image:: https://badge.fury.io/py/alphabot.png
