@@ -26,7 +26,7 @@ import alphabot.bot
 requests.packages.urllib3.disable_warnings()
 
 FORMAT = '%(asctime)-15s %(levelname)-8s %(message)s'
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format=FORMAT)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=FORMAT)
 logging.captureWarnings(True)
 log = logging.getLogger(__name__)
 

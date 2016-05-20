@@ -126,25 +126,13 @@ class Bot(object):
             for kwargs, function in list(self.event_listeners):
                 log.debug('Checking "%s"' % function.__name__)
                 log.debug('Searching for %s in %s' % (kwargs, event))
-                match = self.check_event_kwargs(event, kwargs)
+                match = self._check_event_kwargs(event, kwargs)
                 if match:
                     future = function(event=event)
                     handle_exceptions(future, event)
                 yield gen.moment
 
-    def on(self, **kwargs):
-        def decorator(function):
-            log.info('New Listener: %s => %s()' % (kwargs, function.__name__))
-            self.event_listeners.append((kwargs, function))
-
-        return decorator
-
-    @gen.coroutine
-    def send(self, text, to):
-        raise CoreException('Chat engine "%s" is missing send(...)' % (
-            self.__class__.__name__))
-
-    def add_listener(self, chat):
+    def _add_listener(self, chat):
         log.info('Adding chat listener...')
         @gen.coroutine
         def cmd(event):
@@ -156,7 +144,7 @@ class Bot(object):
 
         self.on(type='message')(cmd)
 
-    def remove_listener(self, chat):
+    def _remove_listener(self, chat):
         match = None
         # Have to search all the event_listeners here
         for kw, function in self.event_listeners:
@@ -164,6 +152,22 @@ class Bot(object):
                     function._listener_chat_id == id(chat)):
                 match = (kw, function)
         self.event_listeners.remove(match)
+
+    def _check_event_kwargs(self, event, kwargs):
+        """Check that all expected kwargs were satisfied by the event."""
+        try:
+            return kwargs.viewitems() <= event.viewitems()  # Python 2.7
+        except AttributeError:
+            return kwargs.items() <= event.items()  # Python 3
+
+    # Decorators to be used in development of scripts
+
+    def on(self, **kwargs):
+        def decorator(function):
+            log.info('New Listener: %s => %s()' % (kwargs, function.__name__))
+            self.event_listeners.append((kwargs, function))
+
+        return decorator
 
     def add_command(self, regex, direct=False):
         def decorator(function):
@@ -179,12 +183,12 @@ class Bot(object):
 
         return decorator 
 
-    def check_event_kwargs(self, event, kwargs):
-        """Check that all expected kwargs were satisfied by the event."""
-        try:
-            return kwargs.viewitems() <= event.viewitems()  # Python 2.7
-        except AttributeError:
-            return kwargs.items() <= event.items()  # Python 3
+    # Functions that scripts can tell bot to execute.
+
+    @gen.coroutine
+    def send(self, text, to):
+        raise CoreException('Chat engine "%s" is missing send(...)' % (
+            self.__class__.__name__))
 
 
 class BotCLI(Bot):
@@ -336,10 +340,10 @@ class Chat(object):
         self.listening = regex
 
         # Hang until self.hear() sets this to False
-        self.bot.add_listener(self)
+        self.bot._add_listener(self)
         while self.listening:
             yield gen.moment
-        self.bot.remove_listener(self)
+        self.bot._remove_listener(self)
 
         raise gen.Return(self.heard_message)
 
