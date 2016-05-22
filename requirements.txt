@@ -1,6 +1,7 @@
-redis
-pytz
-requests
-tornado
 mock
 nose==1.3.7
+pyflakes
+pytz
+redis
+requests
+tornado
