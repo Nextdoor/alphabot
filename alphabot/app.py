@@ -45,6 +45,7 @@ args = parser.parse_args()
 __author__ = ('Mikhail Simin <mikhail@nextdoor.com>',)
 __version__ = '0.0.1'
 
+
 def start_ioloop():
     try:
         ioloop.IOLoop.instance().run_sync(start_alphabot)
@@ -52,6 +53,7 @@ def start_ioloop():
         pass
     except alphabot.bot.AlphaBotException as e:
         log.critical('Alphabot failed. Reason: %s' % e)
+
 
 @gen.coroutine
 def start_alphabot():

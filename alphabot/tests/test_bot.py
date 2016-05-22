@@ -16,7 +16,6 @@ class TestBot(testing.AsyncTestCase):
 
         assert(id(bot) == id(bot2))
 
-
     @testing.gen_test
     def test_setup(self):
         bot = AB.Bot()
@@ -34,10 +33,10 @@ class TestBot(testing.AsyncTestCase):
         self.assertTrue(bot._check_event_kwargs(event, kwargs))
 
         event = {'type': 'message', 'message': 'Hello!'}
-        kwargs = {'type': 'message',}
+        kwargs = {'type': 'message'}
         self.assertTrue(bot._check_event_kwargs(event, kwargs))
 
-        event = {'test': 'test', 'foobar': ['one', 'two'], 'extra':'yes'}
+        event = {'test': 'test', 'foobar': ['one', 'two'], 'extra': 'yes'}
         kwargs = {'test': 'test', 'foobar': ['one', 'two']}
         self.assertTrue(bot._check_event_kwargs(event, kwargs))
 

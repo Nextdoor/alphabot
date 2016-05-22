@@ -1,21 +1,25 @@
 from __future__ import print_function
 
-import copy
 import json
 import logging
 import os
 import pkgutil
 import re
 import sys
-import traceback
 
 from tornado import websocket, gen, httpclient, ioloop
-from tornado.concurrent import Future
 import requests
 
 from alphabot import memory
 
 log = logging.getLogger(__name__)
+
+
+def dict_subset(big, small):
+    try:
+        return small.viewitems() <= big.viewitems()  # Python 2.7
+    except AttributeError:
+        return small.items() <= big.items()  # Python 3
 
 
 class AlphaBotException(Exception):
@@ -73,10 +77,13 @@ def handle_exceptions(future, chat):
 class Bot(object):
 
     instance = None
+    engine = 'default'
 
     def __init__(self):
         self.event_listeners = []
         self.memory = None
+        self._channel_names = {}
+        self._channel_ids = {}
 
     @gen.coroutine
     def setup(self, memory_type, script_paths):
@@ -134,9 +141,10 @@ class Bot(object):
 
     def _add_listener(self, chat):
         log.info('Adding chat listener...')
+
         @gen.coroutine
         def cmd(event):
-            message = self.event_to_chat(event)
+            message = yield self.event_to_chat(event)
             chat.hear(message)
 
         # Uniquely identify this `cmd` to delete later.
@@ -155,10 +163,7 @@ class Bot(object):
 
     def _check_event_kwargs(self, event, kwargs):
         """Check that all expected kwargs were satisfied by the event."""
-        try:
-            return kwargs.viewitems() <= event.viewitems()  # Python 2.7
-        except AttributeError:
-            return kwargs.items() <= event.items()  # Python 3
+        return dict_subset(event, kwargs)
 
     # Decorators to be used in development of scripts
 
@@ -173,21 +178,37 @@ class Bot(object):
         def decorator(function):
             @gen.coroutine
             def cmd(event):
-                message = self.event_to_chat(event)
+                message = yield self.event_to_chat(event)
                 if not message.matches_regex(regex):
                     return
-                function(message)
+                yield function(message)
             cmd.__name__ = function.__name__
 
             self.on(type='message')(cmd)
 
-        return decorator 
+        return decorator
+
+    def cron(self, schedule):
+        pass
 
     # Functions that scripts can tell bot to execute.
 
     @gen.coroutine
     def send(self, text, to):
         raise CoreException('Chat engine "%s" is missing send(...)' % (
+            self.__class__.__name__))
+
+    @gen.coroutine
+    def _update_channels(self):
+        raise CoreException('Chat engine "%s" is missing _update_channels(...)' % (
+            self.__class__.__name__))
+
+    def get_channel(self, name):
+        raise CoreException('Chat engine "%s" is missing get_channel(...)' % (
+            self.__class__.__name__))
+
+    def find_channels(self, pattern):
+        raise CoreException('Chat engine "%s" is missing find_channels(...)' % (
             self.__class__.__name__))
 
 
@@ -218,16 +239,17 @@ class BotCLI(Bot):
         user_input = self.input_line
         self.input_line = None
 
-        event = { 'type': 'message',
-                  'message': user_input }
+        event = {'type': 'message',
+                 'message': user_input}
 
         raise gen.Return(event)
 
+    @gen.coroutine
     def event_to_chat(self, event):
         return Chat(
             text=event['message'],
             user='User',
-            channel='CLI',
+            channel=Channel(self, ['CLI']),
             raw=event['message'],
             bot=self)
 
@@ -235,33 +257,53 @@ class BotCLI(Bot):
     def send(self, text, to):
         print(text)
 
+    def get_channel(self, name):
+        return Channel(bot=self, info={})
+
+    def find_channels(self, pattern):
+        return []
+
 
 class BotSlack(Bot):
 
     engine = 'slack'
 
-    api_start = 'https://slack.com/api/rtm.start'
-    api_react = 'https://slack.com/api/reactions.add'
-
     @gen.coroutine
     def _setup(self):
+        api_start = 'https://slack.com/api/rtm.start'
         self._token = os.getenv('SLACK_TOKEN')
         if not self._token:
             raise InvalidOptions('SLACK_TOKEN required for slack engine.')
 
         log.info('Authenticating...')
-        response = requests.get(self.api_start + '?token=' + self._token).json()
+        response = requests.get(api_start + '?token=' + self._token).json()
         log.info('Logged in!')
 
         self.socket_url = response['url']
         self.connection = yield websocket.websocket_connect(self.socket_url)
 
+        yield self._update_channels()
+
+    @gen.coroutine
+    def _update_channels(self):
+        api_list = 'https://slack.com/api/channels.list'
+
+        client = httpclient.AsyncHTTPClient()
+        # TODO: make a bot command for tokenized fetch
+        response = yield client.fetch(api_list + '?token=' + self._token)
+        channels = json.loads(response.body)['channels']
+
+        self._channels = channels
+
+    @gen.coroutine
     def event_to_chat(self, message):
-        return Chat(text=message.get('text'),
+        channel = self.get_channel(id=message.get('channel'))
+        chat = Chat(text=message.get('text'),
                     user=message.get('user'),
-                    channel=message.get('channel'),
+                    channel=channel,
                     raw=message,
                     bot=self)
+        raise gen.Return(chat)
 
     @gen.coroutine
     def _get_next_event(self):
@@ -270,10 +312,6 @@ class BotSlack(Bot):
         log.debug(message)
 
         message = json.loads(message)
-        #if message.get('type') != 'message':
-        #    continue
-        #else:
-        #    break
 
         raise gen.Return(message)
 
@@ -288,17 +326,43 @@ class BotSlack(Bot):
         log.debug(payload)
         yield self.connection.write_message(payload)
 
+    def get_channel(self, **kwargs):
+        match = [c for c in self._channels if dict_subset(c, kwargs)]
+        if len(match) == 1:
+            channel = Channel(bot=self, info=match[0])
+            return channel
+
+        # Super Hack!
+        if 'id' in kwargs and kwargs['id'][0] == 'D':
+            # Direct message
+            channel = Channel(bot=self, info=kwargs)
+            return channel
+
+        log.warning('Channel match for %s length %s' % (kwargs, len(match)))
+
+
+class Channel(object):
+
+    def __init__(self, bot, info):
+        self.bot = bot
+        self.info = info
+
+    @gen.coroutine
+    def send(self, text):
+        # TODO: Help make this slack-specfic...
+        yield self.bot.send(text, self.info.get('id'))
+
 
 class Chat(object):
     """Wrapper for Message, Bot and helpful functions.
-    
+
     This gets passed to the receiving script's function.
     """
 
     def __init__(self, text, user, channel, raw, bot):
         self.text = text
         self.user = user  # TODO: Create a User() object
-        self.channel = channel  # TODO: Create a Channel() object
+        self.channel = channel
         self.bot = bot
         self.raw = raw
         self.listening = False
@@ -306,7 +370,7 @@ class Chat(object):
 
     def matches_regex(self, regex):
         """Check if this message matches the regex.
-        
+
         If it does store the groups for later use.
         """
         if not self.text:
@@ -321,18 +385,23 @@ class Chat(object):
     @gen.coroutine
     def reply(self, text):
         """Reply to the original channel of the message."""
-        yield self.bot.send(text, to=self.channel)
+        # help hacks
+        # help fix direct messages
+        yield self.bot.send(text, to=self.channel.info.get('id'))
 
     # TODO: figure out how to make this Slack-specific
     @gen.coroutine
     def react(self, reaction):
+        api_react = 'https://slack.com/api/reactions.add'
+
+        # TODO: self.bot.react(reaction, chat=self)
         client = httpclient.AsyncHTTPClient()
-        yield client.fetch(
-            (self.bot.api_react+
-             '?token=' + self.bot._token +
-             '&name=' + reaction +
-             '&timestamp=' + self.raw.get('ts') +
-             '&channel=' + self.channel))
+        yield client.fetch((
+            api_react +
+            '?token=' + self.bot._token +
+            '&name=' + reaction +
+            '&timestamp=' + self.raw.get('ts') +
+            '&channel=' + self.channel.info.get('id')))
 
     # TODO: Add a timeout here. Don't want to hang forever.
     @gen.coroutine
@@ -357,11 +426,7 @@ class Chat(object):
             return
 
         match = re.match(self.listening, new_message.text)
-        log.info('Match is %s' % match)
         if match:
-            log.info('It matches!')
             self.listening = False
             self.heard_message = new_message
             raise gen.Return()
-
-        log.info('It does not match %s' % self.listening)

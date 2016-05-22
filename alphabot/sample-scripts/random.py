@@ -10,12 +10,14 @@ import alphabot.bot
 bot = alphabot.bot.get_instance()
 log = logging.getLogger(__name__)
 
-@bot.on(type='message')
+
+@bot.on(type='message', message='acknowledge')
 @gen.coroutine
 def acknowledge(event):
     message = bot.event_to_chat(event)
-    # yield message.reply('Tadaa!')
+    yield message.reply('Tadaa!')
     log.info('Attached to a message!')
+
 
 @bot.add_command('lunch')
 @gen.coroutine
@@ -25,6 +27,7 @@ def lunch_suggestion(message):
 
     if bot.engine == 'slack':
         yield message.react('burrito')
+
 
 @bot.add_command('hi')
 @gen.coroutine
@@ -37,12 +40,13 @@ def conversation(message):
 
     yield message.reply("%s? Me too!" % response.text)
 
+
 @bot.add_command('random number')
 @gen.coroutine
 def random_number(message):
 
     last_r = yield bot.memory.get('random_number')
-    r = random.randint(1,10)
+    r = random.randint(1, 10)
     yield bot.memory.save('random_number', r)
 
     yield message.reply("Random number is %s" % r)
