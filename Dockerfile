@@ -4,4 +4,4 @@ MAINTAINER Mikhail Simin
 
 COPY ./ /app/
 
-ENTRYPOINT PYTHONPATH=/app python /app/alphabot/app.py
+RUN pip install -e /app
