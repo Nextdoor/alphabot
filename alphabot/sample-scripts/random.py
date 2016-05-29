@@ -11,6 +11,14 @@ bot = alphabot.bot.get_instance()
 log = logging.getLogger(__name__)
 
 
+@bot.on_schedule(minute='0')
+@gen.coroutine
+def still_here():
+    channel = bot.get_channel(name='alphabot-debug')
+    if channel:
+        yield channel.send('I am still here!')
+
+
 @bot.on(type='message', message='acknowledge')
 @gen.coroutine
 def acknowledge(event):

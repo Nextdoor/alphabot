@@ -7,12 +7,15 @@ import pkgutil
 import re
 import sys
 
+from apscheduler.schedulers.tornado import TornadoScheduler
 from tornado import websocket, gen, httpclient, ioloop
 import requests
 
 from alphabot import memory
 
 log = logging.getLogger(__name__)
+scheduler = TornadoScheduler()
+scheduler.start()
 
 
 def dict_subset(big, small):
@@ -188,8 +191,36 @@ class Bot(object):
 
         return decorator
 
-    def cron(self, schedule):
-        pass
+    def on_schedule(self, **schedule_keywords):
+        """Invoke bot command on a schedule.
+
+        Leverages APScheduler for Tornado.
+        http://apscheduler.readthedocs.io/en/latest/modules/triggers/cron.html#api
+
+        year (int|str) - 4-digit year
+        month (int|str) - month (1-12)
+        day (int|str) - day of the (1-31)
+        week (int|str) - ISO week (1-53)
+        day_of_week (int|str) - number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)
+        hour (int|str) - hour (0-23)
+        minute (int|str) - minute (0-59)
+        second (int|str) - second (0-59)
+        start_date (datetime|str) - earliest possible date/time to trigger on (inclusive)
+        end_date (datetime|str) - latest possible date/time to trigger on (inclusive)
+        timezone (datetime.tzinfo|str) - time zone to use for the date/time calculations
+        (defaults to scheduler timezone)
+        """
+
+        if 'second' not in schedule_keywords:
+            # Default is every second. We don't want that.
+            schedule_keywords['second'] = '0'
+
+        def decorator(function):
+            log.info('New Schedule: cron[%s] => %s()' % (schedule_keywords,
+                                                         function.__name__))
+            scheduler.add_job(function, 'cron', **schedule_keywords)
+
+        return decorator
 
     # Functions that scripts can tell bot to execute.
 
