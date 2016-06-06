@@ -182,8 +182,21 @@ class Bot(object):
             @gen.coroutine
             def cmd(event):
                 message = yield self.event_to_chat(event)
-                if not message.matches_regex(regex):
+                matches_regex = message.matches_regex(regex)
+                if not direct and not matches_regex:
                     return
+
+                if direct:
+                    # TODO maybe make it better...
+                    # TODO definitely refactor this garbage: message.is_direct()
+                    # or better yet: message.matches(regex, direct)
+                    # Here's how Hubot did it:
+                    # https://github.com/github/hubot/blob/master/src/robot.coffee#L116
+                    is_direct = False
+                    # is_direct = (message.channel.startswith('D') or
+                    #             message.matches_regex("^@?%s:?\s" % self._user_id, save=False))
+                    if not is_direct:
+                        return
                 yield function(message)
             cmd.__name__ = function.__name__
 
@@ -252,6 +265,7 @@ class BotCLI(Bot):
             sys.stdin, self.capture_input, ioloop.IOLoop.READ)
 
         self.input_line = None
+        self._user_id = 'alphabot'
 
     def print_prompt(self):
         print('\033[4mAlphabot\033[0m> ', end='')
@@ -280,7 +294,7 @@ class BotCLI(Bot):
         return Chat(
             text=event['message'],
             user='User',
-            channel=Channel(self, ['CLI']),
+            channel=Channel(self, {'id': 'CLI'}),
             raw=event['message'],
             bot=self)
 
@@ -313,7 +327,10 @@ class BotSlack(Bot):
         self.socket_url = response['url']
         self.connection = yield websocket.websocket_connect(self.socket_url)
 
-        yield self._update_channels()
+        self._user_id = response['self']['id']
+        self._channels = response['channels']
+
+        self._too_fast_warning = False
 
     @gen.coroutine
     def _update_channels(self):
@@ -340,7 +357,7 @@ class BotSlack(Bot):
     def _get_next_event(self):
         """Slack-specific message reader."""
         message = yield self.connection.read_message()
-        log.debug(message)
+        log.info(message)
 
         message = json.loads(message)
 
@@ -355,6 +372,9 @@ class BotSlack(Bot):
             "text": text
         })
         log.debug(payload)
+        if self._too_fast_warning:
+            yield gen.sleep(2)
+            self._too_fast_warning = False
         yield self.connection.write_message(payload)
 
     def get_channel(self, **kwargs):
@@ -399,7 +419,7 @@ class Chat(object):
         self.listening = False
         self.regex_groups = None
 
-    def matches_regex(self, regex):
+    def matches_regex(self, regex, save=True):
         """Check if this message matches the regex.
 
         If it does store the groups for later use.
@@ -410,7 +430,8 @@ class Chat(object):
         if not match:
             return False
 
-        self.regex_groups = match.groups()
+        if save:
+            self.regex_groups = match.groups()
         return True
 
     @gen.coroutine
