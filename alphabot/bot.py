@@ -13,6 +13,8 @@ import requests
 
 from alphabot import memory
 
+DEFAULT_SCRIPT_DIR = 'default-scripts'
+
 log = logging.getLogger(__name__)
 scheduler = TornadoScheduler()
 scheduler.start()
@@ -121,6 +123,11 @@ class Bot(object):
         if not script_paths:
             log.warning('Warning! You did not specify any scripts to load.')
 
+        log.info('Installing default scripts...')
+        pwd = os.path.dirname(os.path.realpath(__file__))
+        load_all_modules_from_dir(
+            "{path}/{default}".format(path=pwd, default=DEFAULT_SCRIPT_DIR))
+
     @gen.coroutine
     def start(self):
 
@@ -138,6 +145,7 @@ class Bot(object):
                 log.debug('Searching for %s in %s' % (kwargs, event))
                 match = self._check_event_kwargs(event, kwargs)
                 if match:
+                    log.debug("It's a match!")
                     future = function(event=event)
                     handle_exceptions(future, event)
                 yield gen.moment
@@ -376,6 +384,7 @@ class BotSlack(Bot):
             yield gen.sleep(2)
             self._too_fast_warning = False
         yield self.connection.write_message(payload)
+        yield gen.sleep(0.1)  # A small sleep here to allow Slack to respond
 
     def get_channel(self, **kwargs):
         match = [c for c in self._channels if dict_subset(c, kwargs)]
