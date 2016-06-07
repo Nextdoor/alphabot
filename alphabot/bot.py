@@ -426,7 +426,7 @@ class Chat(object):
         """
         if not self.text:
             return False
-        match = re.match(regex, self.text)
+        match = re.match(regex, self.text, flags=re.IGNORECASE)
         if not match:
             return False
 
