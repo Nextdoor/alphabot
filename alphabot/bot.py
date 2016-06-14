@@ -308,7 +308,7 @@ class BotCLI(Bot):
 
     @gen.coroutine
     def send(self, text, to):
-        print(text)
+        print('\033[93mAlphabot: \033[92m', text, '\033[0m')
 
     def get_channel(self, name):
         return Channel(bot=self, info={})
