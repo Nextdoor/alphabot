@@ -17,12 +17,6 @@ Raw:
     cd alphabot
     pip install -e .
     
-Python:
-
-.. code-block:: bash
-
-    pip install alphabot
-
 Docker:
 
 .. code-block:: bash
