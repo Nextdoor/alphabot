@@ -72,8 +72,9 @@ def handle_exceptions(future, chat):
         """Custom callback which is chat aware."""
         try:
             future.result()
-        except:
+        except Exception as e:
             log.error('Script had an error', exc_info=1)
+            chat.reply('Script had an error: %s' % e)
 
     # Tornado functionality to add a custom callback
     future.add_done_callback(cb)
@@ -146,8 +147,10 @@ class Bot(object):
                 match = self._check_event_kwargs(event, kwargs)
                 if match:
                     log.debug("It's a match!")
+                    # XXX Rethink creating a chat object
+                    chat = yield self.event_to_chat(event)
                     future = function(event=event)
-                    handle_exceptions(future, event)
+                    handle_exceptions(future, chat)
                 yield gen.moment
 
     def _add_listener(self, chat):
