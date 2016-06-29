@@ -86,8 +86,9 @@ class Bot(object):
     engine = 'default'
 
     def __init__(self):
-        self.event_listeners = []
         self.memory = None
+        self.event_listeners = []
+        self._on_start = []
         self._channel_names = {}
         self._channel_ids = {}
 
@@ -131,6 +132,10 @@ class Bot(object):
 
     @gen.coroutine
     def start(self):
+
+        log.info('Executing the start scripts.')
+        for function in self._on_start:
+            function()
 
         log.info('Bot started! Listening to events.')
 
@@ -180,6 +185,9 @@ class Bot(object):
         return dict_subset(event, kwargs)
 
     # Decorators to be used in development of scripts
+
+    def on_start(self, function):
+        self._on_start.append(function)
 
     def on(self, **kwargs):
         def decorator(function):
