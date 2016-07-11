@@ -475,6 +475,42 @@ class Chat(object):
             '&timestamp=' + self.raw.get('ts') +
             '&channel=' + self.channel.info.get('id')))
 
+    @gen.coroutine
+    def button_prompt(self, text, buttons):
+        api_button = 'https://slack.com/api/chat.postMessage'
+
+        button_actions = []
+        for b in buttons:
+            if type(b) == dict:
+                button_actions.append(b)
+            else:
+                # assuming it's a string
+                button_actions.append({
+                    "type": "button",
+                    "text": b,
+                    "name": b,
+                    "value": b
+                })
+
+        attachment = [{
+            "color": "#1E9E5E",
+            "text": text,
+            "actions": button_actions,
+            "callback_id": id(self),
+            "fallback": "You are unable to choose for this.",
+            "attachment_type": "default"
+        }]
+
+        client = httpclient.AsyncHTTPClient()
+        yield client.fetch((
+            api_button +
+            '?token=' + self.bot._token +
+            # '&text=' + text +
+            '&attachments=' + json.dumps(attachment) +
+            '&channel=' + self.channel.info.get('id')))
+
+        # TODO: Add logic to wait for the response for this specific button!
+
     # TODO: Add a timeout here. Don't want to hang forever.
     @gen.coroutine
     def listen_for(self, regex):
