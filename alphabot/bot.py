@@ -404,7 +404,7 @@ class BotSlack(Bot):
             return channel
 
         # Super Hack!
-        if kwargs and 'id' in kwargs and kwargs['id'][0] == 'D':
+        if kwargs.get('id') and kwargs['id'][0] == 'D':
             # Direct message
             channel = Channel(bot=self, info=kwargs)
             return channel
