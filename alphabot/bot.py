@@ -1,11 +1,14 @@
 from __future__ import print_function
 
+import StringIO
 import json
 import logging
 import os
 import pkgutil
 import re
 import sys
+import traceback
+import urllib
 
 from apscheduler.schedulers.tornado import TornadoScheduler
 from tornado import websocket, gen, httpclient, ioloop
@@ -74,7 +77,12 @@ def handle_exceptions(future, chat):
             future.result()
         except Exception as e:
             log.error('Script had an error', exc_info=1)
-            chat.reply('Script had an error: %s' % e)
+
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback_string = StringIO.StringIO()
+            traceback.print_exception(exc_type, exc_value, exc_traceback,
+                                      file=traceback_string)
+            chat.reply('Script had an error: %s ```%s```' % (e, traceback_string.getvalue()))
 
     # Tornado functionality to add a custom callback
     future.add_done_callback(cb)
@@ -502,12 +510,13 @@ class Chat(object):
         }]
 
         client = httpclient.AsyncHTTPClient()
-        yield client.fetch((
-            api_button +
-            '?token=' + self.bot._token +
-            # '&text=' + text +
-            '&attachments=' + json.dumps(attachment) +
-            '&channel=' + self.channel.info.get('id')))
+        response = yield client.fetch(
+            request='%s?%s' % (api_button, urllib.urlencode({
+                'token': self.bot._token,
+                'attachments': json.dumps(attachment),
+                'channel': self.channel.info.get('id')})),
+            raise_error=False
+        )
 
         # TODO: Add logic to wait for the response for this specific button!
 
