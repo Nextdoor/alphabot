@@ -1,6 +1,10 @@
 from __future__ import print_function
 
-import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 import json
 import logging
 import os
@@ -79,7 +83,7 @@ def handle_exceptions(future, chat):
             log.error('Script had an error', exc_info=1)
 
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback_string = StringIO.StringIO()
+            traceback_string = StringIO()
             traceback.print_exception(exc_type, exc_value, exc_traceback,
                                       file=traceback_string)
             chat.reply('Script had an error: %s ```%s```' % (e, traceback_string.getvalue()))
