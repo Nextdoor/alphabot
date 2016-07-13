@@ -166,7 +166,27 @@ class Bot(object):
                     handle_exceptions(future, chat)
                 yield gen.moment
 
-    def _add_listener(self, chat):
+    @gen.coroutine
+    def wait_for_event(self, **event_args):
+        # Demented python scope.
+        # http://stackoverflow.com/questions/4851463/python-closure-write-to-variable-in-parent-scope
+        # This variable could be an object, but instead it's a single-element list.
+        event_matched = []
+
+        @gen.coroutine
+        def mark_true(event):
+            event_matched.append(event)
+
+        self.event_listeners.append((event_args, mark_true))
+
+        while not event_matched:
+            yield gen.moment
+
+        self.event_listeners.remove((event_args, mark_true))
+
+        raise gen.Return(event_matched[0])
+
+    def _add_listener(self, chat, **kwargs):
         log.info('Adding chat listener...')
 
         @gen.coroutine
@@ -177,7 +197,10 @@ class Bot(object):
         # Uniquely identify this `cmd` to delete later.
         cmd._listener_chat_id = id(chat)
 
-        self.on(type='message')(cmd)
+        if 'type' not in kwargs:
+            kwargs['type'] = 'message'
+
+        self.on(**kwargs)(cmd)
 
     def _remove_listener(self, chat):
         match = None
@@ -344,6 +367,8 @@ class BotSlack(Bot):
     def _setup(self):
         api_start = 'https://slack.com/api/rtm.start'
         self._token = os.getenv('SLACK_TOKEN')
+        self._web_events = []
+
         if not self._token:
             raise InvalidOptions('SLACK_TOKEN required for slack engine.')
 
@@ -382,7 +407,19 @@ class BotSlack(Bot):
 
     @gen.coroutine
     def _get_next_event(self):
-        """Slack-specific message reader."""
+        """Slack-specific message reader.
+
+        Returns a web event from the API listener if available, otherwise
+        waits for the slack streaming event.
+        """
+
+        if len(self._web_events):
+            event = self._web_events.pop()
+            raise gen.Return(event)
+
+        # TODO: rewrite this logic to use `on_message` feature of the socket
+        # FIXME: At the moment if there are 0 socket messages then web_events
+        #        will never be handled.
         message = yield self.connection.read_message()
         log.info(message)
 
@@ -514,11 +551,13 @@ class Chat(object):
             request='%s?%s' % (api_button, urllib.urlencode({
                 'token': self.bot._token,
                 'attachments': json.dumps(attachment),
-                'channel': self.channel.info.get('id')})),
-            raise_error=False
+                'channel': self.channel.info.get('id')}))
         )
 
-        # TODO: Add logic to wait for the response for this specific button!
+        event = yield self.bot.wait_for_event(type='message-action',
+                                              callback_id=id(self))
+
+        raise gen.Return(event['payload']['actions'][0])
 
     # TODO: Add a timeout here. Don't want to hang forever.
     @gen.coroutine
