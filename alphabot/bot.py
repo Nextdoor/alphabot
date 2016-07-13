@@ -510,7 +510,7 @@ class Chat(object):
         }]
 
         client = httpclient.AsyncHTTPClient()
-        response = yield client.fetch(
+        yield client.fetch(
             request='%s?%s' % (api_button, urllib.urlencode({
                 'token': self.bot._token,
                 'attachments': json.dumps(attachment),
