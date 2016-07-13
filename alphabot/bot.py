@@ -495,7 +495,9 @@ class Chat(object):
         """
         if not self.text:
             return False
-        match = re.match(regex, self.text, flags=re.IGNORECASE)
+
+        # Choosing not to ignore case here.
+        match = re.match(regex, self.text)
         if not match:
             return False
 
