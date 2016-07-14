@@ -36,6 +36,7 @@ class SlackButtonAction(web.RequestHandler):
         payload = self.get_body_argument('payload')
         payload = json.loads(payload)
 
+        log.info('Received a button action. Adding to web events.')
         bot._web_events.append({
             # For Chat class
             'text': '',

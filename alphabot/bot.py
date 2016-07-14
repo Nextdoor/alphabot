@@ -181,11 +181,13 @@ class Bot(object):
         def mark_true(event):
             event_matched.append(event)
 
+        log.info('Creating a temporary listener for %s' % (event_args,))
         self.event_listeners.append((event_args, mark_true))
 
         while not event_matched:
             yield gen.moment
 
+        log.info('Deleting the temporary listener for %s' % (event_args,))
         self.event_listeners.remove((event_args, mark_true))
 
         raise gen.Return(event_matched[0])
@@ -553,12 +555,14 @@ class Chat(object):
         }]
 
         client = httpclient.AsyncHTTPClient()
+        log.info('Sending a Button api call')
         yield client.fetch(
             request='%s?%s' % (api_button, urllib.urlencode({
                 'token': self.bot._token,
                 'attachments': json.dumps(attachment),
                 'channel': self.channel.info.get('id')}))
         )
+        log.info('Sent! Waiting for an event response')
 
         event = yield self.bot.wait_for_event(type='message-action',
                                               callback_id=id(self))
