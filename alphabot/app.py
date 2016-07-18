@@ -35,10 +35,12 @@ parser.add_argument('--version', help='Show version and exit', dest='version',
                     action='store_true', default=False)
 parser.add_argument('-S', '--scripts', dest='scripts', metavar='dir',
                     action='store', default=[], nargs='+',
-                    help=('Direcotry to fetch bot scripts. '
+                    help=('Directory to fetch bot scripts. '
                           'Can be specified multiple times'))
 parser.add_argument('-e', '--engine', dest='engine', action='store',
                     default='cli', help='What chat engine to use. Slack or cli')
+parser.add_argument('-m', '--memory', dest='memory', action='store',
+                    default='dict', help='What persistent storage to use.')
 
 args = parser.parse_args()
 
@@ -59,10 +61,11 @@ def start_ioloop():
 def start_alphabot():
 
     bot = alphabot.bot.get_instance(engine=args.engine)
+    memory = args.memory
 
     full_path_scripts = [os.path.abspath(s) for s in args.scripts]
     log.debug('full path scripts: %s' % full_path_scripts)
-    yield bot.setup(memory_type='dict', script_paths=full_path_scripts)
+    yield bot.setup(memory_type=memory, script_paths=full_path_scripts)
     yield bot.start()
 
 if __name__ == '__main__':
