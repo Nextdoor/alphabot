@@ -322,6 +322,8 @@ class BotCLI(Bot):
 
         self.input_line = None
         self._user_id = 'alphabot'
+        self._token = ''
+        self._web_events = []
 
     def print_prompt(self):
         print('\033[4mAlphabot\033[0m> ', end='')
@@ -334,6 +336,10 @@ class BotCLI(Bot):
 
     @gen.coroutine
     def _get_next_event(self):
+        if len(self._web_events):
+            event = self._web_events.pop()
+            raise gen.Return(event)
+
         while not self.input_line:
             yield gen.moment
 
@@ -341,17 +347,17 @@ class BotCLI(Bot):
         self.input_line = None
 
         event = {'type': 'message',
-                 'message': user_input}
+                 'text': user_input}
 
         raise gen.Return(event)
 
     @gen.coroutine
     def event_to_chat(self, event):
         return Chat(
-            text=event['message'],
+            text=event['text'],
             user='User',
             channel=Channel(self, {'id': 'CLI'}),
-            raw=event['message'],
+            raw=event,
             bot=self)
 
     @gen.coroutine
@@ -549,7 +555,7 @@ class Chat(object):
             "color": "#1E9E5E",
             "text": text,
             "actions": button_actions,
-            "callback_id": id(self),
+            "callback_id": str(id(self)),
             "fallback": "You are unable to choose for this.",
             "attachment_type": "default"
         }]
@@ -565,7 +571,7 @@ class Chat(object):
         log.info('Sent! Waiting for an event response')
 
         event = yield self.bot.wait_for_event(type='message-action',
-                                              callback_id=id(self))
+                                              callback_id=str(id(self)))
 
         raise gen.Return(event['payload']['actions'][0])
 
