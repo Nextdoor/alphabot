@@ -62,5 +62,6 @@ class MemoryRedis(Memory):
         self.r.set(key, value)
 
     @gen.coroutine
-    def _get(self, key, default):
-        raise gen.Return(self.r.get(key))
+    def _get(self, key, default=None):
+        value = self.r.get(key) or default
+        raise gen.Return(value)
