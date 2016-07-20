@@ -573,7 +573,7 @@ class Chat(object):
         event = yield self.bot.wait_for_event(type='message-action',
                                               callback_id=str(id(self)))
 
-        raise gen.Return(event['payload']['actions'][0])
+        raise gen.Return(event['payload']['actions'][0]['value'])
 
     # TODO: Add a timeout here. Don't want to hang forever.
     @gen.coroutine
