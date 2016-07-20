@@ -51,6 +51,11 @@ class SlackButtonAction(web.RequestHandler):
             'payload': payload
         })
 
+        # Slightly hacky: ping slack so that it responds with pong.
+        # This will cause the get_next_message to notice the web event above.
+        # Correct solution requires a lot more code.
+        yield bot.connection.write_message({"id": 0, "type": "ping"})
+
 
 @bot.on_start
 @gen.coroutine
