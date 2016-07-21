@@ -16,7 +16,6 @@ import urllib
 
 from apscheduler.schedulers.tornado import TornadoScheduler
 from tornado import websocket, gen, httpclient, ioloop
-import requests
 
 from alphabot import memory
 
@@ -377,7 +376,6 @@ class BotSlack(Bot):
 
     @gen.coroutine
     def _setup(self):
-        api_start = 'https://slack.com/api/rtm.start'
         self._token = os.getenv('SLACK_TOKEN')
         self._web_events = []
 
@@ -385,7 +383,7 @@ class BotSlack(Bot):
             raise InvalidOptions('SLACK_TOKEN required for slack engine.')
 
         log.info('Authenticating...')
-        response = requests.get(api_start + '?token=' + self._token).json()
+        response = yield self.api('rtm.start')
         log.info('Logged in!')
 
         self.socket_url = response['url']
@@ -398,14 +396,8 @@ class BotSlack(Bot):
 
     @gen.coroutine
     def _update_channels(self):
-        api_list = 'https://slack.com/api/channels.list'
-
-        client = httpclient.AsyncHTTPClient()
-        # TODO: make a bot command for tokenized fetch
-        response = yield client.fetch(api_list + '?token=' + self._token)
-        channels = json.loads(response.body)['channels']
-
-        self._channels = channels
+        response = yield self.api('channels.list')
+        self._channels = response['channels']
 
     @gen.coroutine
     def event_to_chat(self, message):
@@ -438,6 +430,18 @@ class BotSlack(Bot):
         message = json.loads(message)
 
         raise gen.Return(message)
+
+    @gen.coroutine
+    def api(self, method, params=None):
+        client = httpclient.AsyncHTTPClient()
+        if not params:
+            params = {}
+        params.update({'token': self._token})
+        api_url = 'https://slack.com/api/%s' % method
+
+        request = '%s?%s' % (api_url, urllib.urlencode(params))
+        response = yield client.fetch(request=request)
+        raise gen.Return(json.loads(response.body))
 
     @gen.coroutine
     def send(self, text, to):
@@ -520,24 +524,16 @@ class Chat(object):
         # help fix direct messages
         yield self.bot.send(text, to=self.channel.info.get('id'))
 
-    # TODO: figure out how to make this Slack-specific
     @gen.coroutine
     def react(self, reaction):
-        api_react = 'https://slack.com/api/reactions.add'
-
         # TODO: self.bot.react(reaction, chat=self)
-        client = httpclient.AsyncHTTPClient()
-        yield client.fetch((
-            api_react +
-            '?token=' + self.bot._token +
-            '&name=' + reaction +
-            '&timestamp=' + self.raw.get('ts') +
-            '&channel=' + self.channel.info.get('id')))
+        yield self.bot.api('reactions.add', {
+            'name': reaction,
+            'timestamp': self.raw.get('ts'),
+            'channel': self.channel.info.get('id')})
 
     @gen.coroutine
     def button_prompt(self, text, buttons):
-        api_button = 'https://slack.com/api/chat.postMessage'
-
         button_actions = []
         for b in buttons:
             if type(b) == dict:
@@ -551,29 +547,36 @@ class Chat(object):
                     "value": b
                 })
 
-        attachment = [{
+        attachment = {
             "color": "#1E9E5E",
             "text": text,
             "actions": button_actions,
             "callback_id": str(id(self)),
             "fallback": "You are unable to choose for this.",
             "attachment_type": "default"
-        }]
+        }
 
-        client = httpclient.AsyncHTTPClient()
-        log.info('Sending a Button api call')
-        yield client.fetch(
-            request='%s?%s' % (api_button, urllib.urlencode({
-                'token': self.bot._token,
-                'attachments': json.dumps(attachment),
-                'channel': self.channel.info.get('id')}))
-        )
-        log.info('Sent! Waiting for an event response')
+        b = yield self.bot.api('chat.postMessage', {
+            'attachments': json.dumps([attachment]),
+            'channel': self.channel.info.get('id')})
 
         event = yield self.bot.wait_for_event(type='message-action',
                                               callback_id=str(id(self)))
+        action_name = event['payload']['actions'][0]['value']
 
-        raise gen.Return(event['payload']['actions'][0]['value'])
+        attachment.pop('actions')
+        attachment['text'] = (
+            '{text}\n:ballot_box_with_check: {user} selected "{action}"').format(
+                text=attachment['text'],
+                user=event['payload']['user']['name'],
+                action=action_name)
+
+        yield self.bot.api('chat.update', {
+            'ts': b['ts'],
+            'attachments': json.dumps([attachment]),
+            'channel': self.channel.info.get('id')})
+
+        raise gen.Return(action_name)
 
     # TODO: Add a timeout here. Don't want to hang forever.
     @gen.coroutine
