@@ -486,6 +486,52 @@ class Channel(object):
         # TODO: Help make this slack-specfic...
         yield self.bot.send(text, self.info.get('id'))
 
+    @gen.coroutine
+    def button_prompt(self, text, buttons):
+        button_actions = []
+        for b in buttons:
+            if type(b) == dict:
+                button_actions.append(b)
+            else:
+                # assuming it's a string
+                button_actions.append({
+                    "type": "button",
+                    "text": b,
+                    "name": b,
+                    "value": b
+                })
+
+        attachment = {
+            "color": "#1E9E5E",
+            "text": text,
+            "actions": button_actions,
+            "callback_id": str(id(self)),
+            "fallback": "You are unable to choose for this.",
+            "attachment_type": "default"
+        }
+
+        b = yield self.bot.api('chat.postMessage', {
+            'attachments': json.dumps([attachment]),
+            'channel': self.info.get('id')})
+
+        event = yield self.bot.wait_for_event(type='message-action',
+                                              callback_id=str(id(self)))
+        action_name = event['payload']['actions'][0]['value']
+
+        attachment.pop('actions')
+        attachment['text'] = (
+            '{text}\n:ballot_box_with_check: @{user} selected "{action}"').format(
+                text=attachment['text'],
+                user=event['payload']['user']['name'],
+                action=action_name)
+
+        yield self.bot.api('chat.update', {
+            'ts': b['ts'],
+            'attachments': json.dumps([attachment]),
+            'channel': self.info.get('id')})
+
+        raise gen.Return(action_name)
+
 
 class Chat(object):
     """Wrapper for Message, Bot and helpful functions.
@@ -536,49 +582,8 @@ class Chat(object):
 
     @gen.coroutine
     def button_prompt(self, text, buttons):
-        button_actions = []
-        for b in buttons:
-            if type(b) == dict:
-                button_actions.append(b)
-            else:
-                # assuming it's a string
-                button_actions.append({
-                    "type": "button",
-                    "text": b,
-                    "name": b,
-                    "value": b
-                })
-
-        attachment = {
-            "color": "#1E9E5E",
-            "text": text,
-            "actions": button_actions,
-            "callback_id": str(id(self)),
-            "fallback": "You are unable to choose for this.",
-            "attachment_type": "default"
-        }
-
-        b = yield self.bot.api('chat.postMessage', {
-            'attachments': json.dumps([attachment]),
-            'channel': self.channel.info.get('id')})
-
-        event = yield self.bot.wait_for_event(type='message-action',
-                                              callback_id=str(id(self)))
-        action_name = event['payload']['actions'][0]['value']
-
-        attachment.pop('actions')
-        attachment['text'] = (
-            '{text}\n:ballot_box_with_check: @{user} selected "{action}"').format(
-                text=attachment['text'],
-                user=event['payload']['user']['name'],
-                action=action_name)
-
-        yield self.bot.api('chat.update', {
-            'ts': b['ts'],
-            'attachments': json.dumps([attachment]),
-            'channel': self.channel.info.get('id')})
-
-        raise gen.Return(action_name)
+        action = yield self.channel.button_prompt(text, buttons)
+        raise gen.Return(action)
 
     # TODO: Add a timeout here. Don't want to hang forever.
     @gen.coroutine

@@ -19,6 +19,17 @@ def still_here():
         yield channel.send('I am still here!')
 
 
+@bot.add_command('button-example')
+@gen.coroutine
+def button_example(message):
+
+    action = yield message.button_prompt(
+        'Is this a good button example?',
+        ['No', 'Yes'])
+
+    yield message.reply('Got "%s" from the button.' % action)
+
+
 @bot.on(type='message', message='acknowledge')
 @gen.coroutine
 def acknowledge(event):
