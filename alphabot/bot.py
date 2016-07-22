@@ -566,7 +566,7 @@ class Chat(object):
 
         attachment.pop('actions')
         attachment['text'] = (
-            '{text}\n:ballot_box_with_check: {user} selected "{action}"').format(
+            '{text}\n:ballot_box_with_check: @{user} selected "{action}"').format(
                 text=attachment['text'],
                 user=event['payload']['user']['name'],
                 action=action_name)
