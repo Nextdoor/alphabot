@@ -391,6 +391,7 @@ class BotSlack(Bot):
 
         self._user_id = response['self']['id']
         self._channels = response['channels']
+        self._channels.extend(response['groups'])
 
         self._too_fast_warning = False
 
@@ -398,6 +399,7 @@ class BotSlack(Bot):
     def _update_channels(self):
         response = yield self.api('channels.list')
         self._channels = response['channels']
+        self._channels.extend(response['groups'])
 
     @gen.coroutine
     def event_to_chat(self, message):
