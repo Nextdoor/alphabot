@@ -224,11 +224,13 @@ class Bot(object):
 
     def on_start(self, function):
         self._on_start.append(function)
+        return function
 
     def on(self, **kwargs):
         def decorator(function):
             log.info('New Listener: %s => %s()' % (kwargs, function.__name__))
             self.event_listeners.append((kwargs, function))
+            return function
 
         return decorator
 
@@ -256,6 +258,7 @@ class Bot(object):
             cmd.__name__ = function.__name__
 
             self.on(type='message')(cmd)
+            return function
 
         return decorator
 
@@ -287,6 +290,7 @@ class Bot(object):
             log.info('New Schedule: cron[%s] => %s()' % (schedule_keywords,
                                                          function.__name__))
             scheduler.add_job(function, 'cron', **schedule_keywords)
+            return function
 
         return decorator
 
