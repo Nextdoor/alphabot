@@ -524,7 +524,9 @@ class Channel(object):
         action_name = event['payload']['actions'][0]['value']
 
         attachment.pop('actions')  # Do not allow multiple button clicks.
-        attachment['footer'] = ':ballot_box_with_check: @{} selected "{}"'.format('mikhail', 'action')
+        attachment['footer'] = (
+            ':ballot_box_with_check: @{} selected "{}"'.format('mikhail', 'action')
+        )
         attachment['ts'] = time.time()
 
         yield self.bot.api('chat.update', {
