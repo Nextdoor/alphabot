@@ -11,6 +11,7 @@ import os
 import pkgutil
 import re
 import sys
+import time
 import traceback
 import urllib
 
@@ -510,7 +511,7 @@ class Channel(object):
             "text": text,
             "actions": button_actions,
             "callback_id": str(id(self)),
-            "fallback": "You are unable to choose for this.",
+            "fallback": text,
             "attachment_type": "default"
         }
 
@@ -522,12 +523,9 @@ class Channel(object):
                                               callback_id=str(id(self)))
         action_name = event['payload']['actions'][0]['value']
 
-        attachment.pop('actions')
-        attachment['text'] = (
-            '{text}\n:ballot_box_with_check: @{user} selected "{action}"').format(
-                text=attachment['text'],
-                user=event['payload']['user']['name'],
-                action=action_name)
+        attachment.pop('actions')  # Do not allow multiple button clicks.
+        attachment['footer'] = ':ballot_box_with_check: @{} selected "{}"'.format('mikhail', 'action')
+        attachment['ts'] = time.time()
 
         yield self.bot.api('chat.update', {
             'ts': b['ts'],
