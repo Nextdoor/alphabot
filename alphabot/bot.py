@@ -521,12 +521,11 @@ class Channel(object):
 
         event = yield self.bot.wait_for_event(type='message-action',
                                               callback_id=str(id(self)))
-        action_name = event['payload']['actions'][0]['value']
+        action_value = event['payload']['actions'][0]['value']
 
         attachment.pop('actions')  # Do not allow multiple button clicks.
-        attachment['footer'] = (
-            ':ballot_box_with_check: @{} selected "{}"'.format('mikhail', 'action')
-        )
+        attachment['footer'] = '@{} selected "{}"'.format(event['payload']['user']['name'],
+                                                          action_value)
         attachment['ts'] = time.time()
 
         yield self.bot.api('chat.update', {
@@ -534,7 +533,7 @@ class Channel(object):
             'attachments': json.dumps([attachment]),
             'channel': self.info.get('id')})
 
-        raise gen.Return(action_name)
+        raise gen.Return(action_value)
 
 
 class Chat(object):
