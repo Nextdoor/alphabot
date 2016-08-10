@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 
 from tornado import gen
 
@@ -59,9 +60,16 @@ class MemoryRedis(Memory):
 
     @gen.coroutine
     def _save(self, key, value):
-        self.r.set(key, value)
+        json_data = json.dumps(value)
+        self.r.set(key, json_data)
 
     @gen.coroutine
     def _get(self, key, default=None):
-        value = self.r.get(key) or default
-        raise gen.Return(value)
+        raw_data = self.r.get(key) or default
+        try:
+            json_data = json.loads(raw_data)
+        except Exception as e:
+            log.critical('Could not load json data! %s' % e)
+            raise gen.Return(raw_data)
+
+        raise gen.Return(json_data)
