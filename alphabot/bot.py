@@ -366,7 +366,6 @@ class BotCLI(Bot):
         log.info('Would send an API request: %s' % request)
         raise gen.Return('{}')
 
-
     @gen.coroutine
     def event_to_chat(self, event):
         return Chat(
