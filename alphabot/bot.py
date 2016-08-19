@@ -356,6 +356,18 @@ class BotCLI(Bot):
         raise gen.Return(event)
 
     @gen.coroutine
+    def api(self, method, params=None):
+        if not params:
+            params = {}
+        params.update({'token': self._token})
+        api_url = 'https://slack.com/api/%s' % method
+
+        request = '%s?%s' % (api_url, urllib.urlencode(params))
+        log.info('Would send an API request: %s' % request)
+        raise gen.Return('{}')
+
+
+    @gen.coroutine
     def event_to_chat(self, event):
         return Chat(
             text=event['text'],

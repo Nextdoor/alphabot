@@ -73,4 +73,19 @@ if __name__ == '__main__':
         print(__version__)
         exit()
 
-    start_ioloop()
+    try:
+        start_ioloop()
+    except KeyboardInterrupt:
+        log.info('CTRL-C Caught, shutting down')
+    except Exception as e:
+        # Skip traceback that involves tornado's libraries.
+        import traceback
+        trace_lines = traceback.format_exc(e).splitlines()
+        skip_next = False
+        for l in trace_lines:
+            if '/tornado/' in l:
+                skip_next = True
+                continue
+            if not skip_next:
+                print(l)
+            skip_next = False
