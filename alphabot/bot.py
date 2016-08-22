@@ -21,17 +21,11 @@ from tornado import websocket, gen, httpclient, ioloop
 from alphabot import memory
 
 DEFAULT_SCRIPT_DIR = 'default-scripts'
+DEBUG_CHANNEL = os.getenv('DEBUG_CHANNEL', 'alphabot')
 
 log = logging.getLogger(__name__)
 scheduler = TornadoScheduler()
 scheduler.start()
-
-
-def dict_subset(big, small):
-    try:
-        return small.viewitems() <= big.viewitems()  # Python 2.7
-    except AttributeError:
-        return small.items() <= big.items()  # Python 3
 
 
 class AlphaBotException(Exception):
@@ -61,13 +55,6 @@ def get_instance(engine='cli'):
     return Bot.instance
 
 
-def load_all_modules_from_dir(dirname):
-    log.debug('Loading modules from "%s"' % dirname)
-    for importer, package_name, _ in pkgutil.iter_modules([dirname]):
-        log.debug("Importing '%s'" % package_name)
-        importer.find_module(package_name).load_module(package_name)
-
-
 def handle_exceptions(future, chat):
     """Attach to Futures that are not yielded."""
 
@@ -90,6 +77,13 @@ def handle_exceptions(future, chat):
 
     # Tornado functionality to add a custom callback
     future.add_done_callback(cb)
+
+
+def dict_subset(big, small):
+    try:
+        return small.viewitems() <= big.viewitems()  # Python 2.7
+    except AttributeError:
+        return small.items() <= big.items()  # Python 3
 
 
 class Bot(object):
@@ -128,18 +122,37 @@ class Bot(object):
         self.memory = MemoryClass()
         yield self.memory.setup()
 
+    def load_all_modules_from_dir(self, dirname):
+        log.debug('Loading modules from "%s"' % dirname)
+        for importer, package_name, _ in pkgutil.iter_modules([dirname]):
+            log.debug("Importing '%s'" % package_name)
+            try:
+                importer.find_module(package_name).load_module(package_name)
+            except Exception as e:
+                log.critical('Could not load `%s`. Error follows.' % package_name)
+                log.critical(e, exc_info=1)
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback_string = StringIO()
+                traceback.print_exception(exc_type, exc_value, exc_traceback,
+                                          file=traceback_string)
+                self.send(
+                    'Could not load `%s` from %s.' % (package_name, dirname),
+                    DEBUG_CHANNEL)
+                self.send(traceback_string.getvalue(), DEBUG_CHANNEL)
+
     @gen.coroutine
     def _gather_scripts(self, script_paths=[]):
         log.info('Gathering scripts...')
         for path in script_paths:
             log.info('Gathering functions from %s' % path)
-            load_all_modules_from_dir(path)
+            self.load_all_modules_from_dir(path)
+
         if not script_paths:
             log.warning('Warning! You did not specify any scripts to load.')
 
         log.info('Installing default scripts...')
         pwd = os.path.dirname(os.path.realpath(__file__))
-        load_all_modules_from_dir(
+        self.load_all_modules_from_dir(
             "{path}/{default}".format(path=pwd, default=DEFAULT_SCRIPT_DIR))
 
     @gen.coroutine
