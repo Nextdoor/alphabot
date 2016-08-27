@@ -18,6 +18,7 @@ import urllib
 from apscheduler.schedulers.tornado import TornadoScheduler
 from tornado import websocket, gen, httpclient, ioloop
 
+from alphabot import help
 from alphabot import memory
 
 DEFAULT_SCRIPT_DIR = 'default-scripts'
@@ -94,6 +95,7 @@ class Bot(object):
     def __init__(self):
         self.memory = None
         self.event_listeners = []
+        self.help = help.Help()
         self._on_start = []
         self._channel_names = {}
         self._channel_ids = {}
@@ -250,6 +252,9 @@ class Bot(object):
 
     def add_command(self, regex, direct=False):
         def decorator(function):
+            # Register some basic help using the regex.
+            self.help.update(function, regex)
+
             @gen.coroutine
             def cmd(event):
                 message = yield self.event_to_chat(event)
@@ -274,6 +279,12 @@ class Bot(object):
             self.on(type='message')(cmd)
             return function
 
+        return decorator
+
+    def add_help(self, desc, usage=None, tags=None):
+        def decorator(function):
+            self.help.update(function, usage=usage, desc=desc, tags=tags)
+            return function
         return decorator
 
     def on_schedule(self, **schedule_keywords):
