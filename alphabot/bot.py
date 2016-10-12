@@ -67,6 +67,9 @@ def handle_exceptions(future, chat):
         """Custom callback which is chat aware."""
         try:
             future.result()
+        except AlphaBotException as e:
+            """This exception was raised intentionally. No need for traceback."""
+            chat.reply('Script had an error: %s' % e)
         except Exception as e:
             log.error('Script had an error', exc_info=1)
 
@@ -273,7 +276,7 @@ class Bot(object):
                     #             message.matches_regex("^@?%s:?\s" % self._user_id, save=False))
                     if not is_direct:
                         return
-                yield function(message)
+                yield function(message=message, **message.regex_group_dict)
             cmd.__name__ = function.__name__
 
             self.on(type='message')(cmd)
@@ -585,6 +588,7 @@ class Chat(object):
         self.raw = raw
         self.listening = False
         self.regex_groups = None
+        self.regex_group_dict = {}
 
     def matches_regex(self, regex, save=True):
         """Check if this message matches the regex.
@@ -601,6 +605,7 @@ class Chat(object):
 
         if save:
             self.regex_groups = match.groups()
+            self.regex_group_dict = match.groupdict()
         return True
 
     @gen.coroutine
