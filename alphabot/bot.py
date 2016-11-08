@@ -352,7 +352,8 @@ class BotCLI(Bot):
             sys.stdin, self.capture_input, ioloop.IOLoop.READ)
 
         self.input_line = None
-        self._user_id = 'alphabot'
+        self._user_id = 'U123'
+        self._user_name = 'alphabot'
         self._token = ''
         self._web_events = []
 
