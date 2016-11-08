@@ -433,6 +433,7 @@ class BotSlack(Bot):
         self.connection = yield websocket.websocket_connect(self.socket_url)
 
         self._user_id = response['self']['id']
+        self._user_name = response['self']['name']
         self._channels = response['channels']
         self._channels.extend(response['groups'])
 
