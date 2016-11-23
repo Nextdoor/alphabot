@@ -601,7 +601,7 @@ class Chat(object):
             return False
 
         # Choosing not to ignore case here.
-        match = re.match(regex, self.text)
+        match = re.match('^' + regex + '$', self.text)
         if not match:
             return False
 
