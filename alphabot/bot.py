@@ -90,6 +90,10 @@ def dict_subset(big, small):
         return small.items() <= big.items()  # Python 3
 
 
+class MetaString(str):
+    _meta = dict()
+
+
 class Bot(object):
 
     instance = None
@@ -98,6 +102,7 @@ class Bot(object):
     def __init__(self):
         self.memory = None
         self.event_listeners = []
+        self._web_events = []
         self.help = help.Help()
         self._on_start = []
         self._channel_names = {}
@@ -155,16 +160,21 @@ class Bot(object):
         if not script_paths:
             log.warning('Warning! You did not specify any scripts to load.')
 
+        # TODO: Add a flag to control these
         log.info('Installing default scripts...')
         pwd = os.path.dirname(os.path.realpath(__file__))
         self.load_all_modules_from_dir(
             "{path}/{default}".format(path=pwd, default=DEFAULT_SCRIPT_DIR))
+
+    def _event(self, payload):
+        self._web_events.append(payload)
 
     @gen.coroutine
     def start(self):
 
         log.info('Executing the start scripts.')
         for function in self._on_start:
+            log.debug('On Start: %s' % function.__name__)
             function()
 
         log.info('Bot started! Listening to events.')
@@ -174,6 +184,8 @@ class Bot(object):
             log.debug('Received event: %s' % event)
             log.debug('Checking against %s listeners' % len(self.event_listeners))
 
+            event_matched = False
+
             # Note: Copying the event_listeners list here to prevent
             # mid-loop modification of the list.
             for kwargs, function in list(self.event_listeners):
@@ -181,12 +193,20 @@ class Bot(object):
                 log.debug('Searching for %s in %s' % (kwargs, event))
                 match = self._check_event_kwargs(event, kwargs)
                 if match:
-                    log.debug("It's a match!")
-                    # XXX Rethink creating a chat object
+                    event_matched = True
+                    # XXX Rethink creating a chat object. Only using it for error handling
                     chat = yield self.event_to_chat(event)
                     future = function(event=event)
                     handle_exceptions(future, chat)
+
+                # Figure out why this was added
                 yield gen.moment
+
+            if not event_matched:
+                # Add no-match handler. Mainly for Fallbakc like API.AI
+                # Maybe add @bot.fallback() ?
+                # But there should be only one fallback handler
+                pass
 
     @gen.coroutine
     def wait_for_event(self, **event_args):
@@ -247,8 +267,9 @@ class Bot(object):
 
     def on(self, **kwargs):
         def decorator(function):
-            log.info('New Listener: %s => %s()' % (kwargs, function.__name__))
+            log.debug('New Listener: %s => %s()' % (kwargs, function.__name__))
             self.event_listeners.append((kwargs, function))
+            self.event_listeners.append(({'api': 'alphabot.%s' % function.__name__}, function))
             return function
 
         return decorator
@@ -355,7 +376,6 @@ class BotCLI(Bot):
         self._user_id = 'U123'
         self._user_name = 'alphabot'
         self._token = ''
-        self._web_events = []
 
     def print_prompt(self):
         print('\033[4mAlphabot\033[0m> ', end='')
@@ -421,7 +441,6 @@ class BotSlack(Bot):
     @gen.coroutine
     def _setup(self):
         self._token = os.getenv('SLACK_TOKEN')
-        self._web_events = []
 
         if not self._token:
             raise InvalidOptions('SLACK_TOKEN required for slack engine.')
@@ -472,7 +491,7 @@ class BotSlack(Bot):
         # FIXME: At the moment if there are 0 socket messages then web_events
         #        will never be handled.
         message = yield self.connection.read_message()
-        log.info(message)
+        log.info('Slack message: %s' % message)
 
         message = json.loads(message)
 
@@ -498,7 +517,7 @@ class BotSlack(Bot):
             "channel": to,
             "text": text
         })
-        log.debug(payload)
+        log.debug('Sending payload: %s' % payload)
         if self._too_fast_warning:
             yield gen.sleep(2)
             self._too_fast_warning = False
@@ -561,7 +580,10 @@ class Channel(object):
 
         event = yield self.bot.wait_for_event(type='message-action',
                                               callback_id=str(id(self)))
-        action_value = event['payload']['actions'][0]['value']
+        action_value = MetaString(event['payload']['actions'][0]['value'])
+        action_value._meta = {
+            'event': event['payload']
+        }
 
         attachment.pop('actions')  # Do not allow multiple button clicks.
         attachment['footer'] = '@{} selected "{}"'.format(event['payload']['user']['name'],
