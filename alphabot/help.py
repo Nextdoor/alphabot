@@ -11,9 +11,6 @@ class Help(object):
         self._func_map = {}
 
     def update(self, function, usage, tags=None, desc=None):
-        log.info(usage)
-        log.info(tags)
-        log.info(desc)
         if usage and not tags:
             # Default to using 'usage' as the tag.
             tags = [usage]

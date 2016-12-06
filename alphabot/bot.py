@@ -134,6 +134,7 @@ class Bot(object):
 
     def load_all_modules_from_dir(self, dirname):
         log.debug('Loading modules from "%s"' % dirname)
+        self.module_path = dirname
         for importer, package_name, _ in pkgutil.iter_modules([dirname]):
             log.debug("Importing '%s'" % package_name)
             try:
@@ -269,7 +270,9 @@ class Bot(object):
         def decorator(function):
             log.debug('New Listener: %s => %s()' % (kwargs, function.__name__))
             self.event_listeners.append((kwargs, function))
-            self.event_listeners.append(({'api': 'alphabot.%s' % function.__name__}, function))
+            self.event_listeners.append((
+                {'api': 'alphabot:%s:%s' % (self.module_path, function.__name__)},
+                function))
             return function
 
         return decorator
