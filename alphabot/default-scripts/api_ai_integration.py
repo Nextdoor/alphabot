@@ -23,26 +23,24 @@ def fetch_from_apiai(message):
 
     ai = apiai.ApiAI(API_AI_KEY)
 
+    log.info('Requesting action from api.ai...')
     request = ai.text_request()
     request.query = just_text
     response = json.loads(request.getresponse().read())
 
-    result = response['result']
+    result = response.get('result', {})
+    action = result.get('action', {})
+    log.info('Got action %s' % action)
+    function = bot._function_map.get(action)
+    log.info('Got function %s' % function)
 
-    if not result['action'].startswith('alphabot'):
-        raise gen.Return()
+    if function:
+        log.info('Invoking...')
 
-    action = result['action']
-    payload = dict(message.raw)
+        # import pdb; pdb.set_trace()
+        result = yield function(message)
 
-    # prevent event recursion by removing the message type and firing an API
-    # TODO: See if api.ai can provide a new message "value" to fire off.  then
-    # no need for api-specific action. Just changing a message to something
-    # that the bot already knows how to handle.
-    payload.pop('type')
-    payload.update({'api': action})
-
-    bot._event(payload)
+        log.info('Function returned %s' % result)
 
 
 if not API_AI_KEY:

@@ -103,10 +103,13 @@ class Bot(object):
         self.memory = None
         self.event_listeners = []
         self._web_events = []
-        self.help = help.Help()
         self._on_start = []
+
         self._channel_names = {}
         self._channel_ids = {}
+
+        self.help = help.Help()
+        self._function_map = {}
 
     @gen.coroutine
     def setup(self, memory_type, script_paths):
@@ -134,8 +137,8 @@ class Bot(object):
 
     def load_all_modules_from_dir(self, dirname):
         log.debug('Loading modules from "%s"' % dirname)
-        self.module_path = dirname
         for importer, package_name, _ in pkgutil.iter_modules([dirname]):
+            self.module_path = "%s/%s" % (dirname, package_name)
             log.debug("Importing '%s'" % package_name)
             try:
                 importer.find_module(package_name).load_module(package_name)
@@ -168,6 +171,7 @@ class Bot(object):
             "{path}/{default}".format(path=pwd, default=DEFAULT_SCRIPT_DIR))
 
     def _event(self, payload):
+        log.info('Adding an event on top of the stack: %s' % payload)
         self._web_events.append(payload)
 
     @gen.coroutine
@@ -182,6 +186,7 @@ class Bot(object):
 
         while True:
             event = yield self._get_next_event()
+
             log.debug('Received event: %s' % event)
             log.debug('Checking against %s listeners' % len(self.event_listeners))
 
@@ -190,9 +195,9 @@ class Bot(object):
             # Note: Copying the event_listeners list here to prevent
             # mid-loop modification of the list.
             for kwargs, function in list(self.event_listeners):
-                log.debug('Checking "%s"' % function.__name__)
-                log.debug('Searching for %s in %s' % (kwargs, event))
                 match = self._check_event_kwargs(event, kwargs)
+                log.debug('Function %s requires %s. Match: %s' % (
+                    function.__name__, kwargs, match))
                 if match:
                     event_matched = True
                     # XXX Rethink creating a chat object. Only using it for error handling
@@ -245,7 +250,7 @@ class Bot(object):
         if 'type' not in kwargs:
             kwargs['type'] = 'message'
 
-        self.on(**kwargs)(cmd)
+        self._register_function(kwargs, cmd)
 
     def _remove_listener(self, chat):
         match = None
@@ -266,18 +271,26 @@ class Bot(object):
         self._on_start.append(function)
         return function
 
+    def _register_function(self, kwargs, function):
+        log.debug('New Listener: %s => %s()' % (kwargs, function.__name__))
+        self.event_listeners.append((kwargs, function))
+
+    def _register_api_call(self, function):
+        function_api_name = "alphabot:%s:%s" % (self.module_path, function.__name__)
+        log.debug('Registering api: %s' % function_api_name)
+        self._function_map.update({function_api_name: function})
+
     def on(self, **kwargs):
+        """This decorator will invoke your function with the raw event."""
         def decorator(function):
-            log.debug('New Listener: %s => %s()' % (kwargs, function.__name__))
-            self.event_listeners.append((kwargs, function))
-            self.event_listeners.append((
-                {'api': 'alphabot:%s:%s' % (self.module_path, function.__name__)},
-                function))
+            self._register_function(kwargs, function)
+            self._register_api_call(function)
             return function
 
         return decorator
 
     def add_command(self, regex, direct=False):
+        """Will convert the raw event into a message object for your function."""
         def decorator(function):
             # Register some basic help using the regex.
             self.help.update(function, regex)
@@ -286,6 +299,7 @@ class Bot(object):
             def cmd(event):
                 message = yield self.event_to_chat(event)
                 matches_regex = message.matches_regex(regex)
+                log.info('Command %s should match the regex %s' % (function.__name__, regex))
                 if not direct and not matches_regex:
                     return
 
@@ -301,9 +315,10 @@ class Bot(object):
                     if not is_direct:
                         return
                 yield function(message=message, **message.regex_group_dict)
-            cmd.__name__ = function.__name__
+            cmd.__name__ = 'wrapped:%s' % function.__name__
 
-            self.on(type='message')(cmd)
+            self._register_function({'type': 'message'}, cmd)
+            self._register_api_call(function)
             return function
 
         return decorator
@@ -495,7 +510,6 @@ class BotSlack(Bot):
         #        will never be handled.
         message = yield self.connection.read_message()
         log.info('Slack message: %s' % message)
-
         message = json.loads(message)
 
         raise gen.Return(message)
