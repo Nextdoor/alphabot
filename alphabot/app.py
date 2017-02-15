@@ -26,9 +26,12 @@ import alphabot.bot
 requests.packages.urllib3.disable_warnings()
 
 FORMAT = '%(asctime)-15s %(levelname)-8s %(message)s'
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=FORMAT)
+
+logging.basicConfig(stream=sys.stdout, format=FORMAT)
 logging.captureWarnings(True)
 log = logging.getLogger(__name__)
+log_level = logging.getLevelName(os.getenv('LOG_LEVEL', 'INFO'))
+log.setLevel(log_level)
 
 parser = argparse.ArgumentParser(description='Alphabot')
 parser.add_argument('--version', help='Show version and exit', dest='version',

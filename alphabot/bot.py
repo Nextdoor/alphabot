@@ -509,7 +509,7 @@ class BotSlack(Bot):
         # FIXME: At the moment if there are 0 socket messages then web_events
         #        will never be handled.
         message = yield self.connection.read_message()
-        log.info('Slack message: %s' % message)
+        log.debug('Slack message: "%s"' % message)
         message = json.loads(message)
 
         raise gen.Return(message)
