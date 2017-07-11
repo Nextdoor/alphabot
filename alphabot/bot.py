@@ -475,7 +475,7 @@ class BotCLI(Bot):
 
                 "last_read": "1401383885.000061",
                 "unread_count": 0,
-                "unread_count_display": 0 }
+                "unread_count_display": 0}
         return Channel(bot=self, info=sample_info)
 
     def find_channels(self, pattern):
@@ -498,7 +498,8 @@ class BotSlack(Bot):
         if response['ok']:
             log.info('Logged in!')
         else:
-            log.error('Login failed. Reason: "{}". Payload dump: {}'.format(response.get('error', 'No error specified'), response))
+            log.error('Login failed. Reason: "{}". Payload dump: {}'.format(
+                response.get('error', 'No error specified'), response))
             raise InvalidOptions('Login failed')
 
         self.socket_url = response['url']
