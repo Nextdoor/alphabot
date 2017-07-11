@@ -495,7 +495,11 @@ class BotSlack(Bot):
 
         log.info('Authenticating...')
         response = yield self.api('rtm.start')
-        log.info('Logged in!')
+        if response['ok']:
+            log.info('Logged in!')
+        else:
+            log.error('Login failed. Reason: "{}". Payload dump: {}'.format(response.get('error', 'No error specified'), response))
+            raise InvalidOptions('Login failed')
 
         self.socket_url = response['url']
         self.connection = yield websocket.websocket_connect(self.socket_url)
