@@ -446,7 +446,37 @@ class BotCLI(Bot):
         print('\033[93mAlphabot: \033[92m', text, '\033[0m')
 
     def get_channel(self, name):
-        return Channel(bot=self, info={})
+        # https://api.slack.com/types/channel
+        sample_info = {
+                "id": "C024BE91L",
+                "name": "fun",
+                "is_channel": True,
+                "created": 1360782804,
+                "creator": "U024BE7LH",
+                "is_archived": False,
+                "is_general": False,
+
+                "members": [
+                    "U024BE7LH",
+                    ],
+
+                "topic": {
+                    "value": "Fun times",
+                    "creator": "U024BE7LV",
+                    "last_set": 1369677212
+                    },
+                "purpose": {
+                    "value": "This channel is for fun",
+                    "creator": "U024BE7LH",
+                    "last_set": 1360782804
+                    },
+
+                "is_member": True,
+
+                "last_read": "1401383885.000061",
+                "unread_count": 0,
+                "unread_count_display": 0 }
+        return Channel(bot=self, info=sample_info)
 
     def find_channels(self, pattern):
         return []
