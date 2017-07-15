@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 
@@ -8,6 +9,8 @@ import alphabot.bot
 
 bot = alphabot.bot.get_instance()
 log = logging.getLogger(__name__)
+
+SLACK_PORT = int(os.getenv('SLACK_PORT', 8000))
 
 
 @bot.on(ok=False, error={"code": -1,
@@ -56,5 +59,5 @@ def start_webapp():
     app = web.Application([
         (r'/slack-button-action', SlackButtonAction)
     ])
-    log.info('Listening on port 8000')
-    app.listen(8000)
+    log.info('Listening on port %s' % SLACK_PORT)
+    app.listen(SLACK_PORT)

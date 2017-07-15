@@ -7,6 +7,7 @@ except ImportError:
 
 import json
 import logging
+import mock
 import os
 import pkgutil
 import re
@@ -25,6 +26,8 @@ DEFAULT_SCRIPT_DIR = 'default-scripts'
 DEBUG_CHANNEL = os.getenv('DEBUG_CHANNEL', 'alphabot')
 
 log = logging.getLogger(__name__)
+log_level = logging.getLevelName(os.getenv('LOG_LEVEL', 'INFO'))
+log.setLevel(log_level)
 scheduler = TornadoScheduler()
 scheduler.start()
 
@@ -105,9 +108,6 @@ class Bot(object):
         self._web_events = []
         self._on_start = []
 
-        self._channel_names = {}
-        self._channel_ids = {}
-
         self.help = help.Help()
         self._function_map = {}
 
@@ -180,7 +180,7 @@ class Bot(object):
         log.info('Executing the start scripts.')
         for function in self._on_start:
             log.debug('On Start: %s' % function.__name__)
-            function()
+            yield function()
 
         log.info('Bot started! Listening to events.')
 
@@ -395,6 +395,8 @@ class BotCLI(Bot):
         self._user_name = 'alphabot'
         self._token = ''
 
+        self.connection = mock.Mock(name='ConnectionObject')
+
     def print_prompt(self):
         print('\033[4mAlphabot\033[0m> ', end='')
 
@@ -430,7 +432,10 @@ class BotCLI(Bot):
 
         request = '%s?%s' % (api_url, urllib.urlencode(params))
         log.info('Would send an API request: %s' % request)
-        raise gen.Return('{}')
+        response = {
+            "ts": time.time()
+        }
+        raise gen.Return(response)
 
     @gen.coroutine
     def event_to_chat(self, event):
@@ -494,7 +499,11 @@ class BotSlack(Bot):
             raise InvalidOptions('SLACK_TOKEN required for slack engine.')
 
         log.info('Authenticating...')
-        response = yield self.api('rtm.start')
+        try:
+            response = yield self.api('rtm.start')
+        except Exception as e:
+            raise CoreException('API call "rtm.start" to Slack failed: %s' % e)
+
         if response['ok']:
             log.info('Logged in!')
         else:
@@ -507,10 +516,19 @@ class BotSlack(Bot):
 
         self._user_id = response['self']['id']
         self._user_name = response['self']['name']
+        self._users = response['users']
         self._channels = response['channels']
         self._channels.extend(response['groups'])
 
         self._too_fast_warning = False
+
+    def _get_user(self, uid):
+        match = [u for u in self._users if u['id'] == uid]
+        if match:
+            return User(match[0])
+
+        # TODO: handle this better?
+        return None
 
     @gen.coroutine
     def _update_channels(self):
@@ -648,6 +666,18 @@ class Channel(object):
             'channel': self.info.get('id')})
 
         raise gen.Return(action_value)
+
+
+class User(object):
+    """Wrapper for a User with helpful functions."""
+
+    def __init__(self, payload):
+        assert type(payload) == dict
+        self.__dict__ = payload
+        self.__dict__.update(payload['profile'])
+
+    def __unicode__(self):
+        return self.id
 
 
 class Chat(object):
