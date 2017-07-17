@@ -10,7 +10,16 @@ class Help(object):
     def __init__(self):
         self._func_map = {}
 
-    def update(self, function, usage, tags=None, desc=None):
+    def update(self, function, usage, tags=None, desc=''):
+        if not desc and function.__doc__:
+            desc = function.__doc__
+
+        # Override usage if it's in the description
+        for line in desc.split("\n"):
+            if 'Usage: ' in line:
+                usage = line.replace('Usage: ', '').strip()
+                break
+
         if usage and not tags:
             # Default to using 'usage' as the tag.
             tags = [usage]
@@ -40,6 +49,8 @@ class Help(object):
                         results.append((help['usage'], help['desc']))
                         break
         else:
-            results = [(help['usage'], help['desc']) for _, help in self._func_map.iteritems()]
+            results = [
+                    (help['usage'], help['desc'].split("\n")[0])
+                    for _, help in self._func_map.iteritems()]
         # Sort by 'usage' string.
         return sorted(results, key=lambda x: x[0])

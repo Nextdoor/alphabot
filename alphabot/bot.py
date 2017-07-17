@@ -299,7 +299,7 @@ class Bot(object):
             def cmd(event):
                 message = yield self.event_to_chat(event)
                 matches_regex = message.matches_regex(regex)
-                log.info('Command %s should match the regex %s' % (function.__name__, regex))
+                log.debug('Command %s should match the regex %s' % (function.__name__, regex))
                 if not direct and not matches_regex:
                     return
 
@@ -323,7 +323,7 @@ class Bot(object):
 
         return decorator
 
-    def add_help(self, desc, usage=None, tags=None):
+    def add_help(self, desc=None, usage=None, tags=None):
         def decorator(function):
             self.help.update(function, usage=usage, desc=desc, tags=tags)
             return function

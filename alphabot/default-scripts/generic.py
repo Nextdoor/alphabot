@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 
 
 @bot.add_command('!help$')
-@bot.add_help('Get help for commands', usage='!help')
+@bot.add_help('Get summary of commands', usage='!help')
 @gen.coroutine
 def help(message):
     help_text = _make_help_text(bot.help.list())
@@ -17,7 +17,7 @@ def help(message):
 
 
 @bot.add_command('!help (.*)')
-@bot.add_help('Get help for commands', usage='!help <query>')
+@bot.add_help('Get detailed help of a command', usage='!help <command>')
 @gen.coroutine
 def help_query(message):
     query = message.regex_groups[0]
