@@ -12,6 +12,17 @@ class TestException(Exception):
     """Unique exception to be used during testing."""
 
 
+class TestWebApp(testing.AsyncHTTPTestCase):
+    def get_app(self):
+        bot = AB.get_instance(start_web_app=True)
+        return bot.make_web_app()
+
+    def test_healthz(self):
+        response = self.fetch('/healthz')
+        self.assertEqual(response.code, 200)
+        self.assertEqual(response.body, 'ok')
+
+
 class TestBot(testing.AsyncTestCase):
 
     @testing.gen_test

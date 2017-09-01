@@ -17,13 +17,16 @@ import traceback
 import urllib
 
 from apscheduler.schedulers.tornado import TornadoScheduler
-from tornado import websocket, gen, httpclient, ioloop
+from tornado import websocket, gen, httpclient, ioloop, web
 
 from alphabot import help
 from alphabot import memory
 
 DEFAULT_SCRIPT_DIR = 'default-scripts'
 DEBUG_CHANNEL = os.getenv('DEBUG_CHANNEL', 'alphabot')
+
+WEB_PORT = int(os.getenv('WEB_PORT', 8000))
+WEB_PORT_SSL = int(os.getenv('WEB_PORT_SSL', 8443))
 
 log = logging.getLogger(__name__)
 log_level = logging.getLevelName(os.getenv('LOG_LEVEL', 'INFO'))
@@ -44,7 +47,20 @@ class InvalidOptions(AlphaBotException):
     """Robot failed because input options were somehow broken."""
 
 
-def get_instance(engine='cli'):
+class WebApplicationNotAvailable(AlphaBotException):
+    """Failed to register web handler because no web app registered."""
+
+
+def get_instance(engine='cli', start_web_app=False):
+    """Get an Alphabot instance.
+
+    Args:
+        engine (str): Type of Alphabot to create ('cli', 'slack')
+        start_web_app (bool): Whether to start a web server with the engine.
+
+    Returns:
+        Bot: An Alphabot instance.
+    """
     if not Bot.instance:
         engine_map = {
             'cli': BotCLI,
@@ -54,7 +70,7 @@ def get_instance(engine='cli'):
             raise InvalidOptions('Bot engine "%s" is not available.' % engine)
 
         log.debug('Creating a new bot instance. engine: %s' % engine)
-        Bot.instance = engine_map.get(engine)()
+        Bot.instance = engine_map.get(engine)(start_web_app=start_web_app)
 
     return Bot.instance
 
@@ -97,12 +113,18 @@ class MetaString(str):
     _meta = dict()
 
 
+class HealthCheck(web.RequestHandler):
+    """An endpoint used to check if the app is up."""
+    def get(self):
+        self.write('ok')
+
+
 class Bot(object):
 
     instance = None
     engine = 'default'
 
-    def __init__(self):
+    def __init__(self, start_web_app=False):
         self.memory = None
         self.event_listeners = []
         self._web_events = []
@@ -110,6 +132,53 @@ class Bot(object):
 
         self.help = help.Help()
         self._function_map = {}
+        self._web_app = None
+        if start_web_app:
+            self._web_app = self.make_web_app()
+
+    @staticmethod
+    def make_web_app():
+        """Creates a web application.
+
+        Returns:
+            web.Application.
+        """
+        log.info('Creating a web app')
+        return web.Application([
+            (r'/healthz', HealthCheck)
+        ])
+
+    def _start_web_app(self):
+        """Creates a web server on WEB_PORT and WEB_PORT_SSL
+
+        Args:
+            http_port (int): Port to use for HTTP.
+            ssl_port (int): Port to use for HTTPS.
+        """
+        if not self._web_app:
+            return
+        log.info('Listing on port %s' % WEB_PORT)
+        self._web_app.listen(WEB_PORT)
+        self._web_app.listen(WEB_PORT_SSL, ssl_options={
+            "certfile": "/tmp/alphabot.pem",  # Generate these in your entrypoint
+            "keyfile": "/tmp/alphabot.key"
+        })
+
+    @gen.coroutine
+    def add_web_handler(self, path, handler):
+        """Adds a Handler to a web app.
+
+        Args:
+            path (string): Path where the handler should be served.
+            handler (web.RequestHandler): Handler to use.
+
+        Raises:
+            WebApplicationNotAvailable
+        """
+        if not self._web_app:
+            raise WebApplicationNotAvailable
+
+        self._web_app.add_handlers('.*', [(path, handler)])
 
     @gen.coroutine
     def setup(self, memory_type, script_paths):
@@ -176,6 +245,9 @@ class Bot(object):
 
     @gen.coroutine
     def start(self):
+        if self._web_app:
+            log.info('Starting web app.')
+            self._start_web_app()
 
         log.info('Executing the start scripts.')
         for function in self._on_start:

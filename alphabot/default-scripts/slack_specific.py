@@ -10,9 +10,6 @@ import alphabot.bot
 bot = alphabot.bot.get_instance()
 log = logging.getLogger(__name__)
 
-SLACK_PORT = int(os.getenv('SLACK_PORT', 8000))
-SLACK_PORT_SSL = int(os.getenv('SLACK_PORT_SSL', 8443))
-
 
 @bot.on(ok=False, error={"code": -1,
                          "msg": "slow down, too many messages..."})
@@ -20,12 +17,6 @@ SLACK_PORT_SSL = int(os.getenv('SLACK_PORT_SSL', 8443))
 def slack_throttle(event):
     log.warning('Detected a slow-down warning!')
     bot._too_fast_warning = True
-
-
-class HealthCheck(web.RequestHandler):
-
-    def get(self):
-        self.write('ok')
 
 
 class SlackButtonAction(web.RequestHandler):
@@ -61,16 +52,10 @@ class SlackButtonAction(web.RequestHandler):
 
 @bot.on_start
 @gen.coroutine
-def start_webapp():
-    log.info('Creating a web app')
-    app = web.Application([
-        (r'/healthz', HealthCheck),
-        (r'/slack-button-action', SlackButtonAction)
-    ])
-
-    log.info('Listening on port %s' % SLACK_PORT)
-    app.listen(SLACK_PORT)
-    app.listen(SLACK_PORT_SSL, ssl_options={
-        "certfile": "/tmp/alphabot.pem",  # Generate these in your entrypoint
-        "keyfile": "/tmp/alphabot.key"
-    })
+def add_handlers():
+    """Adds Slack specific handlers to the Bot's web_app."""
+    log.info('Adding slack handlers')
+    try:
+        bot.add_web_handler(r'/slack-button-action', SlackButtonAction)
+    except alphabot.bot.WebApplicationNotAvailable:
+        log.error('Unable to add slack callback.')
