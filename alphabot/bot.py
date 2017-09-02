@@ -145,7 +145,7 @@ class Bot(object):
         """
         log.info('Creating a web app')
         return web.Application([
-            (r'/healthz', HealthCheck)
+            (r'/health_check', HealthCheck)
         ])
 
     def _start_web_app(self):
