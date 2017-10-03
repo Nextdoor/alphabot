@@ -14,7 +14,10 @@ import re
 import sys
 import time
 import traceback
-import urllib
+try:
+    from urllib import urlencode
+except ImportError:
+    from urllib.parse import urlencode
 
 from apscheduler.schedulers.tornado import TornadoScheduler
 from tornado import websocket, gen, httpclient, ioloop, web
@@ -502,7 +505,7 @@ class BotCLI(Bot):
         params.update({'token': self._token})
         api_url = 'https://slack.com/api/%s' % method
 
-        request = '%s?%s' % (api_url, urllib.urlencode(params))
+        request = '%s?%s' % (api_url, urlencode(params))
         log.info('Would send an API request: %s' % request)
         response = {
             "ts": time.time()
@@ -647,7 +650,7 @@ class BotSlack(Bot):
         params.update({'token': self._token})
         api_url = 'https://slack.com/api/%s' % method
 
-        request = '%s?%s' % (api_url, urllib.urlencode(params))
+        request = '%s?%s' % (api_url, urlencode(params))
         response = yield client.fetch(request=request)
         raise gen.Return(json.loads(response.body))
 
