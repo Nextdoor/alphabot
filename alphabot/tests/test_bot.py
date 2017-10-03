@@ -18,9 +18,9 @@ class TestWebApp(testing.AsyncHTTPTestCase):
         return bot.make_web_app()
 
     def test_healthz(self):
-        response = self.fetch('/healthz')
+        response = self.fetch('/health_check')
         self.assertEqual(response.code, 200)
-        self.assertEqual(response.body, 'ok')
+        self.assertEqual(response.body.decode(), 'ok')
 
 
 class TestBot(testing.AsyncTestCase):
