@@ -91,15 +91,20 @@ def handle_exceptions(future, chat):
             future.result()
         except AlphaBotException as e:
             """This exception was raised intentionally. No need for traceback."""
-            chat.reply('Script had an error: %s' % e)
+            if chat:
+                chat.reply('Script had an error: %s' % e)
+            else:
+                log.error('Script had an error: %s' % e)
         except Exception as e:
-            log.error('Script had an error', exc_info=1)
+            log.critical('Script had an error: %s' % e, exc_info=1)
 
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback_string = StringIO()
             traceback.print_exception(exc_type, exc_value, exc_traceback,
                                       file=traceback_string)
-            chat.reply('Script had an error: %s ```%s```' % (e, traceback_string.getvalue()))
+
+            if chat:
+                chat.reply('Script had an error: %s ```%s```' % (e, traceback_string.getvalue()))
 
     # Tornado functionality to add a custom callback
     future.add_done_callback(cb)
