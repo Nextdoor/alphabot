@@ -620,7 +620,8 @@ class BotSlack(Bot):
     def _update_channels(self):
         response = yield self.api('channels.list')
         self._channels = response['channels']
-        self._channels.extend(response['groups'])
+        if 'groups' in response:
+            self._channels.extend(response['groups'])
 
     @gen.coroutine
     def event_to_chat(self, message):
