@@ -436,7 +436,8 @@ class Bot(object):
         def decorator(function):
             log.info('New Schedule: cron[%s] => %s()' % (schedule_keywords,
                                                          function.__name__))
-            scheduler.add_job(function, 'cron', **schedule_keywords)
+            scheduler.add_job(ioloop.IOLoop.instance().add_callback,
+                    'cron', args=[function], **schedule_keywords)
             return function
 
         return decorator
