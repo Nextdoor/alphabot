@@ -591,9 +591,9 @@ class BotSlack(Bot):
 
         self._user_id = response['self']['id']
         self._user_name = response['self']['name']
-        self._users = response['users']
-        self._channels = response['channels']
-        self._channels.extend(response['groups'])
+        
+        yield self._update_channels()
+        yield self._update_users()
 
         self._too_fast_warning = False
 
@@ -605,6 +605,11 @@ class BotSlack(Bot):
         # TODO: handle this better?
         return None
 
+    @gen.coroutine
+    def _update_users(self):
+        response = yield self.api('users.list')
+        self._users = response['users']
+    
     @gen.coroutine
     def _update_channels(self):
         response = yield self.api('channels.list')
