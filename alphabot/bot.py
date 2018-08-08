@@ -591,7 +591,7 @@ class BotSlack(Bot):
 
         self._user_id = response['self']['id']
         self._user_name = response['self']['name']
-        
+
         yield self._update_channels()
         yield self._update_users()
 
@@ -609,7 +609,7 @@ class BotSlack(Bot):
     def _update_users(self):
         response = yield self.api('users.list')
         self._users = response['users']
-    
+
     @gen.coroutine
     def _update_channels(self):
         response = yield self.api('channels.list')
