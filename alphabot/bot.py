@@ -614,12 +614,13 @@ class BotSlack(Bot):
     @gen.coroutine
     def _update_users(self):
         response = yield self.api('users.list')
-        self._users = response['users']
+        self._users = response['members']
 
     @gen.coroutine
     def _update_channels(self):
         response = yield self.api('channels.list')
         self._channels = response['channels']
+        response = yield self.api('groups.list')
         self._channels.extend(response['groups'])
 
     @gen.coroutine
